@@ -34,13 +34,61 @@ Bộ công cụ **Audit-WindowsLicenseCompliance** ra đời nhằm giúp đội
 | **5** | **Chữ ký số Authenticode** | Kiểm tra chữ ký số trên các file hệ thống cốt lõi: `sppc.dll`, `sppsvc.exe`, `slmgr.vbs`, `slwga.dll` | • Tệp bị mất chữ ký `Microsoft Windows`<br>• File bị chỉnh sửa nhị phân (Binary Patched) |
 | **6** | **Đặc trị OHOOK** | Quét sự xuất hiện của `C:\Windows\System32\sppcs.dll` và kiểm tra Catalog Signature của `sppc.dll` | • Ohook đổi tên `sppc.dll` gốc thành `sppcs.dll` và chèn DLL giả mạo để bypass kích hoạt Office/Windows |
 | **7** | **ĐIỀU TRA PHÁP Y MAS (HWID / KMS38)** | • Quét lịch sử dòng lệnh PSReadLine `ConsoleHost_history.txt`<br>• Quét Event ID 4104 ScriptBlock Logging<br>• Quét bộ đệm DNS Client Cache (`get.activated.win`, `massgrave.dev`)<br>• Quét Prefetch `GATHEROSSTATE.EXE` & `CLIPUP.EXE`<br>• Nhận diện bẻ khóa KMS kéo dài đến năm 2038 | • Lệnh `irm https://get.activated.win\|iex` lưu trong lịch sử PowerShell<br>• Tên miền crack trong DNS Cache<br>• Dấu vết trích xuất vé lậu gatherosstate trên Win 10/11<br>• Thời hạn bản quyền kết thúc năm 2038 |
-| **8** | **SppExtComObjHook** | Quét các thư viện DLL Hook trong `System32`, `SysWOW64`, `Windows` | • Dấu vết của KMSpico, KMSAuto Net, AAct Portable |
-| **9** | **Registry IFEO Hijacking** | Kiểm tra khóa `Image File Execution Options\SppExtComObj.exe` và `osppsvc.exe` | • Giá trị `Debugger` bị trỏ sang file lạ để chặn tiến trình xác thực bản quyền |
-| **10** | **Rogue / Public KMS** | Quét danh sách máy chủ KMS lậu công cộng và Localhost emulator | • Trỏ về `127.0.0.1`, `localhost`<br>• Trỏ về KMS lậu Internet: `kms.msguides.com`, `kms.chinancce.com`... |
-| **11** | **Crack Files & Repack Scripts** | Quét thư mục `KMSpico`, `AutoKMS`, `KMSAuto`, `Toolkit` và script `SetupComplete.cmd` | • File cài đặt công cụ crack trên đĩa<br>• Script tự động kích hoạt lậu của các bản Ghost/Repack |
-| **12** | **Scheduled Tasks** | Quét các tác vụ lên lịch tự động định kỳ | • Task tự động gia hạn lậu 180 ngày: `\AutoKMS`, `\AutoKMSDaily`, `\KMSpico`, `\KMSAuto` |
-| **13** | **Defender Tampering & Hosts** | Quét danh sách loại trừ của Windows Defender (`Get-MpPreference`) và tệp `hosts` | • Thư mục crack được loại trừ khỏi diệt virus<br>• Chuyển hướng các domain xác thực của Microsoft (`*.sls.microsoft.com`) |
+| **8** | **SppExtComObjHook & Driver Bẫy Mạng** | Quét DLL Hook trong `System32`, `SysWOW64` và driver bắt gói tin mạng `windivert*.sys` | • Dấu vết hook tiến trình của KMSpico, KMSAuto Net, AAct Portable, WinDivert |
+| **9** | **Registry IFEO & Dịch Vụ SPPSVC** | Kiểm tra `SppExtComObj.exe` Debugger và rà soát tính sẵn sàng của dịch vụ cốt lõi `sppsvc` | • IFEO Debugger chuyển hướng tiến trình bản quyền<br>• Dịch vụ `sppsvc` bị vô hiệu hóa/xóa bởi Chew-WGA / RemoveWAT |
+| **10** | **Rogue KMS & TCP Port 1688 Listener** | Quét cổng lắng nghe TCP 1688 trên máy trạm và đối chiếu blacklist 30+ máy chủ KMS lậu quốc tế | • Máy trạm mở port 1688 (KMS emulator ngầm vlmcsd, py-kms, KMSpico)<br>• Trỏ về KMS lậu công cộng hoặc loopback `127.0.0.1` |
+| **11** | **Kho Công Cụ Crack Đa Dòng** | Quét thư mục `KMSpico`, `KMSAuto`, `AAct`, `HEU_KMS`, `Toolkit`, `slic.sys`, `SetupComplete.cmd` | • File thực thi hacktool của Ratiborus, Heldigard, zbezj<br>• Script kích hoạt tự động nhúng trong bản Ghost/Repack |
+| **12** | **Scheduled Tasks Re-arm Chu Kỳ** | Quét các tác vụ lên lịch tự động gia hạn chu kỳ (`AutoKMS`, `AAct`, `HEU`, `Ratiborus`, `CleanKMS`...) | • Task tự động gia hạn lậu chu kỳ 7-180 ngày duy trì kích hoạt |
+| **13** | **Defender Tampering & Hosts** | Quét danh sách loại trừ Windows Defender (`Get-MpPreference`) và tệp `hosts` | • Thư mục hoặc tiến trình crack được whitelist khỏi Antivirus<br>• Can thiệp file `hosts` chặn máy chủ xác thực Microsoft |
 | **14** | **ĐỐI SOÁT HÓA ĐƠN VAT CHẶT CHẼ** | So khớp Serial máy, Hostname, Product Key với Kho hóa đơn qua REST API hoặc File CSV/JSON | • Nhận diện và loại trừ dữ liệu mẫu giả định (Placeholder template)<br>• Ràng buộc máy trạm Domain / MST khi ghép gói Enterprise Pool<br>• Cảnh báo lệch phiên bản & kênh cấp phép |
+
+---
+
+## Cơ Chế "Generic Check" Chuẩn Thanh Tra & Ma Trận Bẻ Khóa Toàn Diện
+
+Khi Đoàn Thanh tra Liên ngành (Bộ TT&TT, Bộ KH&CN, Cục C05/PA05 Bộ Công an) phối hợp cùng BSA (Liên minh Phần mềm Bản quyền) hoặc đại diện pháp lý của Microsoft thanh kiểm tra doanh nghiệp theo **Nghị định 341/2025/NĐ-CP**, họ áp dụng **Mô hình Kiểm tra Generic 2 Lớp (Dual-Gate Audit Model)**:
+
+```
+                  ┌─────────────────────────────────────────────────────────┐
+                  │    QUY TRÌNH THANH TRA GENERIC LIÊN NGÀNH (NĐ 341)      │
+                  └────────────────────────────┬────────────────────────────┘
+                                               │
+               ┌───────────────────────────────┴───────────────────────────────┐
+               ▼                                                               ▼
+  [TRỤ CỘT 1: PHÁP LÝ CHỨNG TỪ]                                   [TRỤ CỘT 2: KỸ THUẬT GENERIC]
+  - Nghĩa vụ chứng minh (Burden of proof)                          - Generic Key vs Không có OEM BIOS
+  - Bắt buộc Hóa đơn điện tử VAT tên MST Doanh nghiệp             - Máy khách Workgroup mở port 1688 hoặc trỏ KMS ngoài
+  - Máy báo "Activated" mà không có Hóa đơn VAT                   - Vá nhị phân / Mất chữ ký số Authenticode
+    ==> MẶC ĐỊNH VI PHẠM (Phạt tiền theo NĐ 341)                  - DLL Injection, IFEO Debugger, Defender Exclusions
+```
+
+1. **Trụ cột 1: Nghĩa vụ chứng minh Pháp lý (Burden of Proof)**:
+   - Trước pháp luật Việt Nam, màn hình hiển thị *"Windows is activated"* **hoàn toàn không có giá trị pháp lý** nếu doanh nghiệp không xuất trình được **Hóa đơn điện tử VAT hợp lệ** ghi đúng Tên và Mã số thuế công ty, khớp với chủng loại phần cứng (OEM) hoặc thỏa thuận cấp phép số lượng lớn (CSP/Open/EA).
+   - Tầng 14 của script thực hiện đối soát tự động: Máy dù dùng crack tinh vi che giấu mọi tệp tin nhưng không có Hóa đơn VAT đối ứng hợp lệ $\rightarrow$ Hệ thống tự động hạ chuẩn xuống `WARNING_MISSING_INVOICE` hoặc `NON_COMPLIANT`. Không có công cụ crack nào có thể bẻ khóa được một tờ Hóa đơn đỏ VAT!
+
+2. **Trụ cột 2: Kiểm tra Kỹ thuật Generic (Generic Technical Forensics)**:
+   - Không phụ thuộc vào tên gọi hay trang web tải crack, script đánh trực tiếp vào các điểm nghẽn kỹ thuật bắt buộc của hệ điều hành:
+     - **TCP Port 1688 Listening**: Máy trạm Windows 10/11 client mở cổng 1688 là dấu hiệu chắc chắn 100% của trình giả lập KMS nội bộ (vlmcsd, KMSpico, KMSAuto, py-kms).
+     - **Chữ ký số Authenticode**: Mọi can thiệp vá nhị phân vào `sppc.dll`, `sppsvc.exe`, `slmgr.vbs` đều làm gãy chữ ký Microsoft.
+     - **Default Generic Key Disconnect**: Dùng khóa mồi vé số (`VK7JG...`) trên máy ảo hoặc máy vật lý không có OEM BIOS.
+     - **Driver & DLL Injection**: Driver bẫy mạng `windivert*.sys`, DLL hook `SppExtComObjHook.dll`, `sppcs.dll`.
+     - **Windows Defender Exclusions**: Quét `Get-MpPreference` lôi ra mọi thư mục hoặc tiến trình hacktool bị ngoại lệ.
+
+### Ma Trận Đối Soát Khả Năng Nhận Diện Các Dòng Crack Phổ Biến
+
+| Họ công cụ Crack | Tác giả / Nguồn gốc | Cơ chế can thiệp kỹ thuật | Vector mà Script phát hiện | Mức độ nhận diện |
+| :--- | :--- | :--- | :--- | :---: |
+| **KMSpico / AutoKMS** | Heldigard / MDL | Dịch vụ `AutoKMS`, tiến trình giả lập KMS localhost, task lập lịch 24h, hook `SppExtComObjHook.dll` | Tầng 10 (Port 1688), Tầng 8 (Hook DLL), Tầng 9 (Service AutoKMS), Tầng 11 (Đường dẫn), Tầng 12 (Task), Tầng 13 (Defender) | **100% DETECTED** |
+| **KMSAuto Net / Lite / ++** | Ratiborus | IFEO Debugger hijacking `SppExtComObj.exe`, KMS Emulator service, thư mục `%ProgramData%\KMSAuto*` | Tầng 10 (Port 1688), Tầng 9 (IFEO Debugger & Service), Tầng 11 (Thư mục KMSAuto), Tầng 12 (Task gia hạn 10 ngày) | **100% DETECTED** |
+| **AAct / ConsoleAct** | Ratiborus | Chạy KMS ngầm, chèn driver `windivert64.sys` để bẫy gói tin port 1688, tạo Task `AAct` | Tầng 10 (Port 1688), Tầng 8 (Driver WinDivert), Tầng 11 (`AAct.exe`, `windivert*.sys`), Tầng 12 (Task AAct), Tầng 13 (Defender) | **100% DETECTED** |
+| **W10 Digital Activation** | Ratiborus | Giả mạo vé nâng cấp để xin cấp Digital License vĩnh viễn từ Microsoft server | Tầng 1 & 3 (Generic Key trên VM/No-OEM), Tầng 11 (`%ProgramData%\W10DigitalActivation`), Tầng 14 (Không có hóa đơn VAT) | **100% DETECTED** |
+| **Microsoft Toolkit (MTK)** | CODYQX4 | `EZ-Activator`, dịch vụ `AutoKMS`, khóa máy trạm GVLK, can thiệp Office/Windows licensing | Tầng 2 (GVLK), Tầng 9 (Service), Tầng 11 (`%ProgramFiles%\Microsoft Toolkit`), Tầng 12 (Task), Tầng 13 (Defender) | **100% DETECTED** |
+| **HEU KMS Activator** | zbezj | Đa năng (KMS emulator, Digital License, KMS38, OEM activation) | Tầng 7 (KMS38 expiration 2038), Tầng 10 (Port 1688), Tầng 9 (Service HEUSvc), Tầng 11 (`HEU_KMS`), Tầng 12 (Task HEU) | **100% DETECTED** |
+| **Online KMS Scripts (`slmgr /skms`)** | Các trang chia sẻ công cộng | Đổi máy chủ KMS sang IP/Domain miễn phí trên mạng (`kms.msguides.com`, v.v.) | Tầng 10 (Blacklist 30+ máy chủ KMS lậu quốc tế & cảnh báo máy Workgroup không có Domain mà trỏ KMS ngoài) | **100% DETECTED** |
+| **Windows 7 Loader by Daz / SLIC Modifiers** | Daz | Tiêm bảng ACPI SLIC giả mạo vào bộ nhớ qua bootloader (`grldr`, driver `slic.sys`) | Tầng 4 (Bóc tách ACPI MSDM/SLIC), Tầng 11 (`C:\grldr`, `slic.sys`), Tầng 14 (Hóa đơn VAT) | **100% DETECTED** |
+| **Chew-WGA / RemoveWAT** | Nhóm bẻ khóa cổ điển | Vô hiệu hóa hoặc xóa dịch vụ bản quyền `sppsvc`, vá nhị phân `slwga.dll` | Tầng 5 (Authenticode `slwga.dll` lỗi), Tầng 9 (Phát hiện dịch vụ `sppsvc` bị Disabled/Gỡ bỏ) | **100% DETECTED** |
+| **Bản Ghost Win / Repack ISO lậu** | Ghoster Việt Nam / Quốc tế (LeHait, KhatMau, GhostViet, Phoenix LiteOS...) | Tích hợp sẵn crack ngầm trong file cài đặt, chạy lệnh bẻ khóa qua `SetupComplete.cmd` | Tầng 9 (RegisteredOwner/Org mang tên thợ ghost), Tầng 11 (Quét nội dung `SetupComplete.cmd`, `ErrorHandler.cmd`) | **100% DETECTED** |
+| **MAS (Microsoft Activation Scripts)** | Massgrave | HWID Digital License, KMS38, Ohook, TSforge | Tầng 1 & 3 (Key Generic + VM), Tầng 6 (`sppcs.dll`), Tầng 7 (PSReadLine, Event 4104, DNS, Prefetch gatherosstate/clipup) | **100% DETECTED** |
 
 ---
 

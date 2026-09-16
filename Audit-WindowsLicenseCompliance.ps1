@@ -362,7 +362,8 @@ $KnownRogueKmsHosts = @(
     "kms.cangshui.net", "kms.library.hk", "kms.teevee.asia", "kms.zhuxiaokai.biz",
     "kms.srv.crabdance.com", "kms.ddns.net", "kms.shuax.com", "kms.luody.info",
     "kms.xspace.in", "kms.catqu.com", "kms.vfree.org", "kms.cxzy.vip",
-    "kms.mindfly.cn", "kms.landiannews.com", "kms.ghpym.com"
+    "kms.mindfly.cn", "kms.landiannews.com", "kms.ghpym.com",
+    "kms.senbe.cn", "kms.cz9.cn", "kms.moeclub.org", "kms.bige0.com", "kms.loli.best"
 )
 
 $KmsServer = if ($KmsMachineConfigured) { $KmsMachineConfigured } else { $KmsMachineDiscovered }
@@ -398,6 +399,33 @@ if ($ProductKeyChannel -match "Volume:GVLK" -or $KmsServer) {
 } else {
     Write-ResultItem "Máy chủ KMS" "Không sử dụng (Kênh Retail / OEM)" "PASSED"
     Add-Finding "KMS Server" "KMS không áp dụng" "PASSED" "Máy không sử dụng cơ chế kích hoạt KMS." "Hợp lệ"
+}
+
+# Kiểm tra lắng nghe cổng mạng KMS (TCP 1688) cục bộ trên máy trạm
+$KmsPortListening = $false
+$KmsPortProcInfo = ""
+try {
+    $tcpConns = Get-NetTCPConnection -LocalPort 1688 -State Listen -ErrorAction SilentlyContinue
+    if ($tcpConns) {
+        $KmsPortListening = $true
+        $pids = ($tcpConns | Select-Object -ExpandProperty OwningProcess -Unique)
+        $procNames = @()
+        foreach ($p in $pids) {
+            try {
+                $pr = Get-Process -Id $p -ErrorAction SilentlyContinue
+                if ($pr) { $procNames += "$($pr.Name) (PID: $p, Path: $($pr.Path))" }
+            } catch {}
+        }
+        $KmsPortProcInfo = $procNames -join "; "
+    }
+} catch {}
+
+if ($KmsPortListening) {
+    Write-ResultItem "Cổng KMS nội bộ (TCP 1688)" "PHÁT HIỆN PORT 1688 ĐANG MỞ: $KmsPortProcInfo" "FAILED"
+    Add-Finding "KMS Server" "KMS Port 1688 Listener" "FAILED" "Máy trạm đang mở cổng lắng nghe TCP 1688 ($KmsPortProcInfo). Đây là đặc trưng của trình giả lập KMS nội bộ (vlmcsd, KMSpico, KMSAuto, py-kms, HEU KMS) đang chạy ngầm để bẻ khóa." "Giả lập máy chủ bản quyền trên máy khách theo NĐ 341/2025/NĐ-CP"
+} else {
+    Write-ResultItem "Cổng KMS nội bộ (TCP 1688)" "Sạch (Máy trạm không mở dịch vụ KMS giả lập)" "PASSED"
+    Add-Finding "KMS Server" "KMS Port 1688 Listener" "PASSED" "Cổng TCP 1688 không mở." "Bình thường"
 }
 
 # ==============================================================================
@@ -658,7 +686,18 @@ if (-not $IfeoHijacked) {
     Add-Finding "Registry IFEO" "IFEO Debugger" "PASSED" "Không có cấu hình Debugger can thiệp vào tiến trình xác thực." "Bình thường"
 }
 
-$SuspiciousServices = @("KMSEmulator", "AutoKMS", "KMSAuto", "KmsService", "Service_KMS")
+# Rà soát tính toàn vẹn của Dịch vụ Bảo vệ Bản quyền cốt lõi (SPPSVC - Phát hiện Chew-WGA / RemoveWAT)
+$SppCoreSvc = Get-Service -Name "sppsvc" -ErrorAction SilentlyContinue
+if (-not $SppCoreSvc -or $SppCoreSvc.StartType -eq "Disabled") {
+    Write-ResultItem "Dịch vụ SPPSVC cốt lõi" "BỊ VÔ HIỆU HÓA HOẶC BỊ GỠ BỎ! (Đặc trưng Chew-WGA / RemoveWAT)" "FAILED"
+    Add-Finding "Services" "sppsvc Disabled" "FAILED" "Dịch vụ bản quyền Software Protection (sppsvc) bị vô hiệu hóa hoặc không tồn tại. Đây là thủ thuật triệt tiêu hệ thống kiểm tra bản quyền của Chew-WGA / RemoveWAT." "Can thiệp phá hoại dịch vụ hệ thống"
+}
+
+$SuspiciousServices = @(
+    "KMSEmulator", "AutoKMS", "KMSAuto", "KmsService", "Service_KMS",
+    "SECOH-QAD", "KMS-Server", "qad-service", "HEUSvc", "AutoPicoService",
+    "KMS-R@1n-Service", "WinDivert", "WinDivert14"
+)
 $ServiceFound = $false
 
 foreach ($svcName in $SuspiciousServices) {
@@ -711,7 +750,24 @@ $CrackPaths = @(
     "$env:ProgramData\Microsoft Toolkit",
     "$env:ProgramFiles\Microsoft Toolkit",
     "$env:windir\KMS-R@1n",
+    "$env:windir\AAct.exe",
+    "$env:windir\AAct_x64.exe",
+    "$env:windir\ConsoleAct.exe",
+    "$env:windir\ConsoleAct_x64.exe",
+    "$env:ProgramData\AAct",
+    "$env:ProgramData\ConsoleAct",
+    "$env:ProgramData\W10DigitalActivation",
+    "$env:ProgramData\HEU_KMS",
+    "$env:ProgramFiles\HEU KMS Activator",
+    "${env:ProgramFiles(x86)}\HEU KMS Activator",
+    "$env:SystemDrive\grldr",
+    "$env:SystemDrive\menu.lst",
+    "$env:windir\System32\drivers\slic.sys",
+    "$env:windir\System32\drivers\windivert64.sys",
+    "$env:windir\System32\drivers\windivert32.sys",
+    "$env:windir\System32\wat\watadmin.exe",
     "$env:windir\Setup\Scripts\SetupComplete.cmd",
+    "$env:windir\Setup\Scripts\ErrorHandler.cmd",
     "$env:windir\Setup\Scripts\Activate.cmd",
     "$env:windir\Setup\Scripts\Activate.bat"
 )
@@ -746,7 +802,7 @@ if (-not $CrackFoundOnDisk) {
 # ==============================================================================
 Write-Section "9. RÀ SOÁT TÁC VỤ LÊN LỊCH TỰ ĐỘNG RE-ARM (SCHEDULED TASKS)"
 
-$SuspiciousTaskPatterns = @("AutoKMS", "KMSpico", "KMSAuto", "AAct", "AutoPico")
+$SuspiciousTaskPatterns = @("AutoKMS", "KMSpico", "KMSAuto", "AAct", "AutoPico", "HEU", "CleanKMS", "KMSCleaner", "Ratiborus", "W10Digital", "ConsoleAct", "SppExtComObj")
 $TasksFound = $false
 
 try {
@@ -779,7 +835,7 @@ if ($IsAdmin) {
         $exclProcs = $mpPref.ExclusionProcess
 
         $DefenderTampered = $false
-        $CrackPatterns = @("AutoKMS", "KMSpico", "KMSAuto", "AAct", "SppExtComObj", "MAS", "Activator")
+        $CrackPatterns = @("AutoKMS", "KMSpico", "KMSAuto", "AAct", "SppExtComObj", "MAS", "Activator", "Ratiborus", "HEU", "ConsoleAct", "W10Digital", "windivert", "KMSCleaner", "DefenderControl")
 
         if ($exclPaths) {
             foreach ($ep in $exclPaths) {
