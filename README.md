@@ -23,22 +23,24 @@ Bộ công cụ **Audit-WindowsLicenseCompliance** ra đời nhằm giúp đội
 
 ---
 
-## 12 Tầng Phân Tích Kỹ Thuật Chuyên Sâu
+## 14 Tầng Phân Tích Kỹ Thuật Pháp Y Chuyên Sâu
 
 | # | Hạng mục rà soát | Cơ chế phân tích điều tra pháp y (Forensics) | Dấu hiệu phát hiện vi phạm / Rủi ro |
 |---|---|---|---|
-| **1** | **SPP Licensing Subsystem** | Truy vấn trực tiếp CIM/WMI `SoftwareLicensingProduct` & `SoftwareLicensingService` | • `LicenseStatus != 1` (Chưa kích hoạt, Grace Period)<br>• Kênh cấp phép bất thường so với thực tế mua sắm |
-| **2** | **ACPI BIOS MSDM Table** | Đọc `OA3xOriginalProductKey` từ bo mạch chủ phần cứng (Dell, HP, ThinkPad...) | • Bóc tách key OEM gốc theo máy để khôi phục bản quyền hợp pháp miễn phí nếu bị thợ cài đè Win lậu |
-| **3** | **Chữ ký số Authenticode** | Kiểm tra chữ ký số trên các file hệ thống cốt lõi: `sppc.dll`, `sppsvc.exe`, `slmgr.vbs`, `slwga.dll` | • Tệp bị mất chữ ký `Microsoft Windows`<br>• File bị chỉnh sửa nhị phân (Binary Patched) |
-| **4** | **Đặc trị OHOOK / MAS** *(Công cụ crack phổ biến nhất)* | Quét sự xuất hiện của `C:\Windows\System32\sppcs.dll` và kiểm tra Catalog Signature của `sppc.dll` | • Ohook đổi tên `sppc.dll` gốc thành `sppcs.dll` và chèn DLL giả mạo để bypass kích hoạt |
-| **5** | **SppExtComObjHook** | Quét các thư viện DLL Hook trong `System32`, `SysWOW64`, `Windows` | • Dấu vết của KMSpico, KMSAuto Net, AAct Portable |
-| **6** | **Registry IFEO Hijacking** | Kiểm tra khóa `Image File Execution Options\SppExtComObj.exe` và `osppsvc.exe` | • Giá trị `Debugger` bị trỏ sang file lạ để chặn tiến trình xác thực bản quyền |
-| **7** | **Rogue / Public KMS** | Quét danh sách máy chủ KMS lậu công cộng và Localhost emulator | • Trỏ về `127.0.0.1`, `localhost`<br>• Trỏ về KMS lậu Internet: `kms.msguides.com`, `kms.chinancce.com`... |
-| **8** | **Crack Files & Repack Scripts** | Quét thư mục `KMSpico`, `AutoKMS`, `KMSAuto`, `Toolkit` và script `SetupComplete.cmd` | • File cài đặt công cụ crack trên đĩa<br>• Script tự động kích hoạt lậu của các bản Ghost/Repack |
-| **9** | **Scheduled Tasks** | Quét các tác vụ lên lịch tự động định kỳ | • Task tự động gia hạn lậu 180 ngày: `\AutoKMS`, `\AutoKMSDaily`, `\KMSpico`, `\KMSAuto` |
-| **10** | **Defender Exclusions** | Quét danh sách `ExclusionPath` và `ExclusionProcess` của Windows Defender | • Các thư mục crack được cố tình loại trừ khỏi diệt virus để tránh bị xóa |
-| **11** | **Hosts File Tampering** | Quét tệp `C:\Windows\System32\drivers\etc\hosts` | • Chặn hoặc chuyển hướng các domain xác thực của Microsoft (`*.sls.microsoft.com`) |
-| **12** | **ĐỐI SOÁT HÓA ĐƠN VAT** | So khớp Serial máy, Hostname, Product Key với Kho hóa đơn qua REST API hoặc File CSV/JSON | • Khớp hóa đơn mua hàng hợp lệ<br>• Cảnh báo lệch phiên bản (mua Home cài Pro)<br>• Cảnh báo lệch Mã số thuế doanh nghiệp |
+| **1** | **Nền tảng Phần cứng & Ảo hóa** | Nhận diện máy tính vật lý vs Máy ảo (VMware, VirtualBox, Hyper-V, KVM, QEMU) | • Máy ảo không có bản quyền OEM vật lý từ BIOS. Khóa generic vĩnh viễn trên VM là dấu hiệu 100% của MAS HWID crack |
+| **2** | **SPP Licensing Subsystem** | Truy vấn trực tiếp CIM/WMI `SoftwareLicensingProduct` & `SoftwareLicensingService` | • `LicenseStatus != 1` (Chưa kích hoạt, Grace Period)<br>• Kênh cấp phép bất thường so với thực tế mua sắm |
+| **3** | **Default Generic Product Keys** | Tra cứu từ điển khóa mặc định Microsoft (`VK7JG-...-3V66T`, `8HVX7`...) | • Khóa generic không phải là chứng từ mua riêng lẻ mà là khóa mồi vé số. Cần hóa đơn VAT đối ứng |
+| **4** | **ACPI BIOS MSDM Table** | Đọc `OA3xOriginalProductKey` từ bo mạch chủ phần cứng (Dell, HP, ThinkPad...) | • Bóc tách key OEM gốc theo máy để khôi phục bản quyền hợp pháp miễn phí nếu bị thợ cài đè Win lậu |
+| **5** | **Chữ ký số Authenticode** | Kiểm tra chữ ký số trên các file hệ thống cốt lõi: `sppc.dll`, `sppsvc.exe`, `slmgr.vbs`, `slwga.dll` | • Tệp bị mất chữ ký `Microsoft Windows`<br>• File bị chỉnh sửa nhị phân (Binary Patched) |
+| **6** | **Đặc trị OHOOK** | Quét sự xuất hiện của `C:\Windows\System32\sppcs.dll` và kiểm tra Catalog Signature của `sppc.dll` | • Ohook đổi tên `sppc.dll` gốc thành `sppcs.dll` và chèn DLL giả mạo để bypass kích hoạt Office/Windows |
+| **7** | **ĐIỀU TRA PHÁP Y MAS (HWID / KMS38)** | • Quét lịch sử dòng lệnh PSReadLine `ConsoleHost_history.txt`<br>• Quét Event ID 4104 ScriptBlock Logging<br>• Quét bộ đệm DNS Client Cache (`get.activated.win`, `massgrave.dev`)<br>• Quét Prefetch `GATHEROSSTATE.EXE` & `CLIPUP.EXE`<br>• Nhận diện bẻ khóa KMS kéo dài đến năm 2038 | • Lệnh `irm https://get.activated.win\|iex` lưu trong lịch sử PowerShell<br>• Tên miền crack trong DNS Cache<br>• Dấu vết trích xuất vé lậu gatherosstate trên Win 10/11<br>• Thời hạn bản quyền kết thúc năm 2038 |
+| **8** | **SppExtComObjHook** | Quét các thư viện DLL Hook trong `System32`, `SysWOW64`, `Windows` | • Dấu vết của KMSpico, KMSAuto Net, AAct Portable |
+| **9** | **Registry IFEO Hijacking** | Kiểm tra khóa `Image File Execution Options\SppExtComObj.exe` và `osppsvc.exe` | • Giá trị `Debugger` bị trỏ sang file lạ để chặn tiến trình xác thực bản quyền |
+| **10** | **Rogue / Public KMS** | Quét danh sách máy chủ KMS lậu công cộng và Localhost emulator | • Trỏ về `127.0.0.1`, `localhost`<br>• Trỏ về KMS lậu Internet: `kms.msguides.com`, `kms.chinancce.com`... |
+| **11** | **Crack Files & Repack Scripts** | Quét thư mục `KMSpico`, `AutoKMS`, `KMSAuto`, `Toolkit` và script `SetupComplete.cmd` | • File cài đặt công cụ crack trên đĩa<br>• Script tự động kích hoạt lậu của các bản Ghost/Repack |
+| **12** | **Scheduled Tasks** | Quét các tác vụ lên lịch tự động định kỳ | • Task tự động gia hạn lậu 180 ngày: `\AutoKMS`, `\AutoKMSDaily`, `\KMSpico`, `\KMSAuto` |
+| **13** | **Defender Tampering & Hosts** | Quét danh sách loại trừ của Windows Defender (`Get-MpPreference`) và tệp `hosts` | • Thư mục crack được loại trừ khỏi diệt virus<br>• Chuyển hướng các domain xác thực của Microsoft (`*.sls.microsoft.com`) |
+| **14** | **ĐỐI SOÁT HÓA ĐƠN VAT CHẶT CHẼ** | So khớp Serial máy, Hostname, Product Key với Kho hóa đơn qua REST API hoặc File CSV/JSON | • Nhận diện và loại trừ dữ liệu mẫu giả định (Placeholder template)<br>• Ràng buộc máy trạm Domain / MST khi ghép gói Enterprise Pool<br>• Cảnh báo lệch phiên bản & kênh cấp phép |
 
 ---
 

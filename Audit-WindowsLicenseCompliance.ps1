@@ -1,7 +1,7 @@
 ﻿<#
 .SYNOPSIS
-    Audit-WindowsLicenseCompliance.ps1 - Enterprise Windows License & Piracy Audit Tool
-    Phần mềm Kiểm tra Bản quyền Windows, Phát hiện Công cụ Bẻ khóa & Đối soát Hóa đơn VAT Doanh nghiệp.
+    Audit-WindowsLicenseCompliance.ps1 - Enterprise Windows License & Piracy Forensic Audit Tool
+    Phần mềm Kiểm tra Bản quyền Windows, Phát hiện Bẻ khóa MAS/HWID/KMS & Đối soát Hóa đơn VAT Doanh nghiệp.
     Phát triển bởi: @uziii2208. Bản quyền MIT License @2026
 
 .DESCRIPTION
@@ -11,22 +11,27 @@
     an toàn thông tin mạng và sử dụng phần mềm máy tính), Nghị định 131/2013/NĐ-CP, Nghị định 14/2022/NĐ-CP,
     và Điều 225 Bộ luật Hình sự.
 
-    Các module rà soát chuyên sâu:
+    Các module rà soát pháp y chuyên sâu (14 Tầng phân tích):
     1. Trạng thái bản quyền chính thức qua Software Protection Platform (WMI/CIM/slmgr).
-    2. Nhận diện Kênh bản quyền (Retail, OEM:DM, Volume:MAK, Volume:GVLK/KMS).
-    3. Trích xuất OEM Factory Key nguyên bản từ bo mạch chủ UEFI/BIOS ACPI MSDM & Serial Number phần cứng.
+    2. Nhận diện Kênh bản quyền (Retail, OEM:DM, Volume:MAK, Volume:GVLK/KMS) & Bóc tách Default Generic Keys (VK7JG...).
+    3. Nhận diện Nền tảng Phần cứng (Máy tính vật lý vs Máy ảo VMware/VirtualBox/Hyper-V) & Rà soát ACPI BIOS MSDM.
     4. Kiểm tra Chữ ký số Authenticode & Tính toàn vẹn của các file hệ thống (sppc.dll, sppsvc.exe, slmgr.vbs).
-    5. Phát hiện cơ chế bẻ khóa tinh vi Ohook / MAS (Microsoft Activation Scripts) qua sppcs.dll & sppc.dll hook.
-    6. Phát hiện SppExtComObjHook, IFEO Debugger Hijacking cho tiến trình bản quyền.
-    7. Nhận diện máy chủ KMS lậu (Localhost emulator 127.0.0.1 hoặc Public Internet KMS servers).
-    8. Quét dấu vết các bộ công cụ bẻ khóa: KMSpico, AutoKMS, KMSAuto Net, AAct, Microsoft Toolkit, HEU KMS.
-    9. Quét tác vụ đặt lịch tự động re-arm / re-activate (Scheduled Tasks).
-    10. Kiểm tra danh sách loại trừ bất thường của Windows Defender (Defender Exclusions).
-    11. Kiểm tra can thiệp file HOSTS chuyển hướng máy chủ kích hoạt Microsoft.
-    12. ĐỐI SOÁT HÓA ĐƠN ĐIỆN TỬ VAT THỰC TẾ: Tự động kết nối REST API hoặc đọc File cơ sở dữ liệu hóa đơn
-        (invoices.json / invoices.csv / XML TCT) để so khớp Serial máy, Hostname, Product Key, Phiên bản Windows
-        và Mã số thuế doanh nghiệp (Nghĩa vụ chứng minh nguồn gốc theo NĐ 341/2025/NĐ-CP).
-    13. Đánh giá rủi ro pháp lý & Xuất báo cáo đa định dạng (Console, HTML chuyên nghiệp, JSON, CSV).
+    5. Phát hiện bẻ khóa Ohook qua sppcs.dll & sppc.dll hook.
+    6. ĐIỀU TRA PHÁP Y DẤU VẾT BẺ KHÓA KỸ THUẬT SỐ MAS (HWID, KMS38, TSforge):
+       - Quét lịch sử dòng lệnh PowerShell (PSReadLine ConsoleHost_history.txt) tìm lệnh 'irm https://get.activated.win|iex'...
+       - Quét nhật ký Event ID 4104 (ScriptBlock Logging) phát hiện mã nguồn MAS/massgrave.
+       - Quét bộ nhớ đệm DNS (DNS Client Cache) phát hiện phân giải get.activated.win, massgrave.dev.
+       - Quét tệp Prefetch phát hiện gatherosstate.exe (công cụ tạo vé lậu trên Win 10/11) & clipup.exe.
+       - Quét thư mục vé bản quyền số C:\ProgramData\Microsoft\Windows\ClipSVC\GenuineTicket & Temp Logs (_Debug.log).
+       - Phát hiện bẻ khóa KMS38 kéo dài thời hạn đến năm 2038.
+    7. Phát hiện SppExtComObjHook, IFEO Debugger Hijacking cho tiến trình bản quyền.
+    8. Nhận diện máy chủ KMS lậu (Localhost emulator 127.0.0.1 hoặc Public Internet KMS servers).
+    9. Quét dấu vết các bộ công cụ bẻ khóa: KMSpico, AutoKMS, KMSAuto Net, AAct, Microsoft Toolkit, HEU KMS.
+    10. Quét tác vụ đặt lịch tự động re-arm / re-activate (Scheduled Tasks).
+    11. Kiểm tra danh sách loại trừ bất thường của Windows Defender (Defender Exclusions).
+    12. Kiểm tra can thiệp file HOSTS chuyển hướng máy chủ kích hoạt Microsoft.
+    13. ĐỐI SOÁT HÓA ĐƠN ĐIỆN TỬ VAT THỰC TẾ (Chống false positive mẫu template placeholder, thắt chặt điều kiện Enterprise Pool).
+    14. Đánh giá rủi ro pháp lý & Xuất báo cáo đa định dạng (Console, HTML chuyên nghiệp, JSON, CSV).
 
 .PARAMETER ExportHtml
     Đường dẫn tệp báo cáo HTML trực quan phục vụ lưu trữ hồ sơ kiểm toán.
@@ -61,9 +66,9 @@
 .OUTPUTS
     Exit Codes:
     0 = COMPLIANT (Bản quyền hợp lệ, sạch crack, đối soát hóa đơn VAT thành công)
-    1 = SUSPICIOUS (Cần bổ sung/xác minh hóa đơn VAT hoặc hợp đồng Volume Licensing)
+    1 = SUSPICIOUS / WARNING (Cần bổ sung/xác minh hóa đơn VAT hoặc hợp đồng Volume Licensing)
     2 = NON-COMPLIANT (Chưa kích hoạt hoặc đã hết hạn dùng thử)
-    3 = CRITICAL_PIRATED (Phát hiện dấu vết bẻ khóa, crack, rogue KMS, can thiệp file hệ thống)
+    3 = CRITICAL_PIRATED (Phát hiện dấu vết bẻ khóa MAS, HWID, KMS lậu, file hệ thống bị vá)
 #>
 
 [CmdletBinding()]
@@ -153,8 +158,26 @@ function Write-ResultItem {
     Write-Host ("  [{0,-10}] {1,-35}: {2}" -f $Status, $Label, $Value) -ForegroundColor $color
 }
 
+# Danh mục Product Key mặc định của Microsoft (Default Generic Product Keys)
+$KnownGenericProductKeys = @{
+    "3V66T" = [PSCustomObject]@{ Edition = "Windows 10/11 Pro"; FullKey = "VK7JG-NPHTM-C97JM-9MPGT-3V66T"; Type = "Generic Retail / Digital License" }
+    "8HVX7" = [PSCustomObject]@{ Edition = "Windows 10/11 Home"; FullKey = "YTMG3-N6DKC-DKB77-7M9GH-8HVX7"; Type = "Generic Retail / Digital License" }
+    "6F4BT" = [PSCustomObject]@{ Edition = "Windows 10/11 Home Single Language"; FullKey = "BT79Q-G7N6G-PGBYW-4YWX6-6F4BT"; Type = "Generic Retail / Digital License" }
+    "WT2RQ" = [PSCustomObject]@{ Edition = "Windows 10/11 Home Single Language"; FullKey = "WYPNQ-8C467-V2W6J-TX4WX-WT2RQ"; Type = "Generic Retail / Digital License" }
+    "RR888" = [PSCustomObject]@{ Edition = "Windows 10/11 Pro Education"; FullKey = "6TP4R-GNPTD-KYYHQ-2337H-RR888"; Type = "Generic Retail / Digital License" }
+    "2YV77" = [PSCustomObject]@{ Edition = "Windows 10/11 Pro for Workstations"; FullKey = "DXG7C-N36C4-C4HTG-X4T3X-2YV77"; Type = "Generic Retail / Digital License" }
+    "8HV2C" = [PSCustomObject]@{ Edition = "Windows 10/11 Enterprise"; FullKey = "XGVPP-NMH47-7TTHJ-W3FW7-8HV2C"; Type = "Generic Retail / Digital License" }
+    "7CFBY" = [PSCustomObject]@{ Edition = "Windows 10/11 Education"; FullKey = "YNMGQ-8RYV3-4PGQ3-C8XTP-7CFBY"; Type = "Generic Retail / Digital License" }
+    "J462D" = [PSCustomObject]@{ Edition = "Windows 10/11 Enterprise LTSC 2019/2021"; FullKey = "M7XTQ-FN8P6-TTKYV-9D4CC-J462D"; Type = "Generic Retail / Digital License" }
+    "BHDCD" = [PSCustomObject]@{ Edition = "Windows 10/11 IoT Enterprise LTSC"; FullKey = "K9VKN-3BGWV-Y624W-MCRMQ-BHDCD"; Type = "Generic Retail / Digital License" }
+    "CCC78" = [PSCustomObject]@{ Edition = "Windows 11 Pro SE"; FullKey = "43TBQ-NH92J-XKXXK-373CT-CCC78"; Type = "Generic Retail / Digital License" }
+    "MDWWW" = [PSCustomObject]@{ Edition = "Windows 10 Enterprise LTSB 2015"; FullKey = "FWN7H-PF93Q-4GGP8-M8RF3-MDWWW"; Type = "Generic Retail / Digital License" }
+    "4488K" = [PSCustomObject]@{ Edition = "Windows 10 Enterprise LTSB 2016"; FullKey = "2NBWW-MBBJ9-G4K4K-VD427-4488K"; Type = "Generic Retail / Digital License" }
+    "T83GX" = [PSCustomObject]@{ Edition = "Windows 10/11 Pro KMS Client"; FullKey = "W269N-WFGWX-YVC9B-4J6C9-T83GX"; Type = "Generic Volume GVLK" }
+}
+
 # ==============================================================================
-# 1. THÔNG TIN THIẾT BỊ & HỆ ĐIỀU HÀNH
+# 1. THÔNG TIN THIẾT BỊ, PHẦN CỨNG & NỀN TẢNG ẢO HÓA
 # ==============================================================================
 Write-Section "1. THÔNG TIN THIẾT BỊ & HỆ ĐIỀU HÀNH"
 
@@ -170,27 +193,45 @@ $OSVersion      = $OSInfo.Version
 $OSBuild        = $OSInfo.BuildNumber
 $OSArch         = $OSInfo.OSArchitecture
 $InstallDate    = $OSInfo.InstallDate
-$Manufacturer   = $CompSystem.Manufacturer
-$Model          = $CompSystem.Model
+$Manufacturer   = if ($CompSystem.Manufacturer) { $CompSystem.Manufacturer.Trim() } else { "Unknown" }
+$Model          = if ($CompSystem.Model) { $CompSystem.Model.Trim() } else { "Unknown" }
 $DomainJoined   = $CompSystem.PartOfDomain
 $DomainName     = $CompSystem.Domain
 $HardwareSerial = if ($BiosInfo.SerialNumber) { $BiosInfo.SerialNumber.Trim() } else { "Unknown" }
 $HardwareUUID   = if ($CsProduct.UUID) { $CsProduct.UUID.Trim() } else { "Unknown" }
 
+# Nhận diện phần cứng vật lý vs Máy ảo (Virtual Machine)
+$IsVirtualMachine = $false
+$VmPlatform = ""
+$VmKeywords = @("VMware", "VirtualBox", "Virtual Machine", "Hyper-V", "QEMU", "KVM", "Xen", "Parallels", "Standard PC")
+
+foreach ($kw in $VmKeywords) {
+    if ($Manufacturer -like "*$kw*" -or $Model -like "*$kw*" -or $HardwareSerial -like "*$kw*") {
+        $IsVirtualMachine = $true
+        $VmPlatform = $kw
+        break
+    }
+}
+if ($CompSystem.Model -match "Virtual" -or $BiosInfo.SerialNumber -like "*VMware*" -or $BiosInfo.SerialNumber -like "*VirtualBox*") {
+    $IsVirtualMachine = $true
+    if (-not $VmPlatform) { $VmPlatform = "Virtual Machine" }
+}
+
 Write-ResultItem "Tên máy tính (Hostname)" $ComputerName "INFO"
 Write-ResultItem "Số Serial phần cứng (Service Tag)" $HardwareSerial "INFO"
 Write-ResultItem "Người dùng hiện tại" $CurrentUser "INFO"
 Write-ResultItem "Nhà sản xuất / Model" "$Manufacturer $Model" "INFO"
+Write-ResultItem "Loại phần cứng" $(if ($IsVirtualMachine) { "Máy ảo ($VmPlatform) [Không có OEM BIOS]" } else { "Máy tính vật lý (Physical Host)" }) "INFO"
 Write-ResultItem "Phiên bản Windows" "$OSCaption (Build $OSBuild, $OSArch)" "INFO"
 Write-ResultItem "Gia nhập Domain (AD)" $(if ($DomainJoined) { "Có ($DomainName)" } else { "Không (Workgroup)" }) "INFO"
-Write-ResultItem "Quyền thực thi Script" $(if ($IsAdmin) { "Administrator (Toàn quyền rà soát)" } else { "Standard User (Khuyến nghị chạy Run as Admin để quét sâu Defender)" }) $(if ($IsAdmin) { "PASSED" } else { "SUSPICIOUS" })
+Write-ResultItem "Quyền thực thi Script" $(if ($IsAdmin) { "Administrator (Toàn quyền rà soát)" } else { "Standard User (Khuyến nghị chạy Run as Admin để quét sâu Defender & Nhật ký)" }) $(if ($IsAdmin) { "PASSED" } else { "SUSPICIOUS" })
 
 # Kiểm tra OEM Factory License trong BIOS/UEFI (ACPI MSDM table)
 $Oa3Key = ""
 try {
     $sppService = Get-CimInstance -ClassName SoftwareLicensingService
     if ($sppService.OA3xOriginalProductKey) {
-        $Oa3Key = $sppService.OA3xOriginalProductKey
+        $Oa3Key = $sppService.OA3xOriginalProductKey.Trim()
     }
 } catch {}
 
@@ -198,8 +239,13 @@ if ($Oa3Key) {
     Write-ResultItem "OEM Key trong BIOS (MSDM)" "$Oa3Key (Bản quyền gốc đi theo phần cứng máy)" "PASSED"
     Add-Finding "Hardware License" "BIOS MSDM Key" "PASSED" "Máy tính có sẵn key bản quyền OEM nhúng trong bo mạch chủ từ nhà sản xuất ($Oa3Key)." "Hợp lệ về phần cứng"
 } else {
-    Write-ResultItem "OEM Key trong BIOS (MSDM)" "Không phát hiện (Máy lắp ráp, máy ảo hoặc bo mạch chủ không nhúng key OEM)" "INFO"
-    Add-Finding "Hardware License" "BIOS MSDM Key" "INFO" "Không có key OEM trong BIOS. Cần có giấy phép Retail/FPP hoặc Volume Licensing." "Cần chứng từ kèm theo"
+    $oemMsg = if ($IsVirtualMachine) { "Không có (Máy ảo không hỗ trợ nạp key OEM vào BIOS)" } else { "Không phát hiện (Máy lắp ráp, máy cài đặt lại hoặc mainboard không có key OEM)" }
+    Write-ResultItem "OEM Key trong BIOS (MSDM)" $oemMsg "INFO"
+    Add-Finding "Hardware License" "BIOS MSDM Key" "INFO" "Không có key OEM trong BIOS. Bắt buộc phải có Giấy phép Retail/FPP hoặc Volume Licensing doanh nghiệp kèm hóa đơn VAT." "Cần chứng từ kèm theo"
+}
+
+if ($IsVirtualMachine) {
+    Add-Finding "Hardware Platform" "Môi trường Máy Ảo" "INFO" "Thiết bị là máy ảo ($VmPlatform). Máy ảo không thể sở hữu bản quyền OEM phần cứng. Doanh nghiệp bắt buộc phải có Giấy phép Volume (KMS/MAK) từ máy chủ nội bộ hoặc hóa đơn bản quyền riêng biệt." "Cần chứng từ cấp phép riêng cho máy ảo"
 }
 
 # ==============================================================================
@@ -229,7 +275,7 @@ $GracePeriodDays = 0
 
 if ($WinProduct) {
     $LicenseStatusCode = $WinProduct.LicenseStatus
-    $PartialKey = $WinProduct.PartialProductKey
+    $PartialKey = if ($WinProduct.PartialProductKey) { $WinProduct.PartialProductKey.Trim().ToUpper() } else { "None" }
     $ProductDescription = $WinProduct.Description
     $ProductKeyChannel = $WinProduct.ProductKeyChannel
     $KmsMachineConfigured = $WinProduct.KeyManagementServiceMachine
@@ -240,7 +286,7 @@ if ($WinProduct) {
 
     switch ($LicenseStatusCode) {
         0 { $LicenseStatusString = "Unlicensed (Chưa có giấy phép)" }
-        1 { $LicenseStatusString = "Licensed (Đã kích hoạt hợp lệ)" }
+        1 { $LicenseStatusString = "Licensed (Đã kích hoạt)" }
         2 { $LicenseStatusString = "OOBGrace (Đang trong thời gian dùng thử ban đầu)" }
         3 { $LicenseStatusString = "OOTGrace (Hết hạn thời gian gia hạn)" }
         4 { $LicenseStatusString = "NonGenuineGrace (Microsoft phát hiện không chính hãng)" }
@@ -265,17 +311,36 @@ if ($SlmgrXprOutput -match "permanently activated|kích hoạt vĩnh viễn") {
     $IsPermanentActivation = $true
 }
 
-Write-ResultItem "Trạng thái Giấy phép" $LicenseStatusString $(if ($LicenseStatusCode -eq 1) { "PASSED" } else { "FAILED" })
-Write-ResultItem "Kênh cấp phép (Channel)" $ProductKeyChannel $(if ($ProductKeyChannel -match "Retail|OEM") { "PASSED" } else { "SUSPICIOUS" })
-Write-ResultItem "5 ký tự cuối Product Key" $PartialKey "INFO"
-Write-ResultItem "Mô tả sản phẩm" $ProductDescription "INFO"
-Write-ResultItem "Thời hạn kích hoạt (slmgr /xpr)" $(if ($SlmgrXprOutput) { $SlmgrXprOutput.Replace("`r`n", " - ") } else { "Không truy xuất được" }) $(if ($IsPermanentActivation) { "PASSED" } else { "SUSPICIOUS" })
+# Nhận diện Default Generic Product Key
+$IsGenericKey = $false
+$GenericKeyMatch = $null
+if ($PartialKey -ne "None" -and $KnownGenericProductKeys.ContainsKey($PartialKey)) {
+    $IsGenericKey = $true
+    $GenericKeyMatch = $KnownGenericProductKeys[$PartialKey]
+}
 
-if ($LicenseStatusCode -eq 1) {
-    if ($ProductKeyChannel -match "OEM") {
+# Kiểm tra dấu vết bẻ khóa KMS38 (Thời hạn kéo dài tới năm 2038)
+$IsKms38Crack = ($SlmgrXprOutput -match "2038" -or ($WinProduct -and $WinProduct.GracePeriodRemaining -gt 5000000))
+
+Write-ResultItem "Trạng thái Giấy phép" $LicenseStatusString $(if ($LicenseStatusCode -eq 1 -and -not $IsKms38Crack) { "PASSED" } else { "FAILED" })
+Write-ResultItem "Kênh cấp phép (Channel)" $ProductKeyChannel $(if ($ProductKeyChannel -match "Retail|OEM") { "PASSED" } else { "SUSPICIOUS" })
+Write-ResultItem "5 ký tự cuối Product Key" "$PartialKey $(if ($IsGenericKey) { '[Default Generic Key / Digital License]' } else { '' })" $(if ($IsGenericKey -and $IsVirtualMachine) { "FAILED" } elseif ($IsGenericKey -and -not $Oa3Key) { "WARNING" } else { "INFO" })
+Write-ResultItem "Mô tả sản phẩm" $ProductDescription "INFO"
+Write-ResultItem "Thời hạn kích hoạt (slmgr /xpr)" $(if ($SlmgrXprOutput) { $SlmgrXprOutput.Replace("`r`n", " - ") } else { "Không truy xuất được" }) $(if ($IsKms38Crack) { "FAILED" } elseif ($IsPermanentActivation) { "PASSED" } else { "SUSPICIOUS" })
+
+if ($IsKms38Crack) {
+    Add-Finding "SPP Licensing" "KMS38 Bẻ khóa" "FAILED" "Phát hiện thời hạn bản quyền kết thúc vào năm 2038 ($SlmgrXprOutput). Đây là chữ ký bẻ khóa đặc trưng của công cụ MAS KMS38 (lợi dụng vé ClipSVC gia hạn tới 2038)." "Bẻ khóa bản quyền có chủ đích theo NĐ 341/2025/NĐ-CP"
+} elseif ($LicenseStatusCode -eq 1) {
+    if ($IsGenericKey -and $IsVirtualMachine) {
+        Write-ResultItem "Đánh giá Product Key" "Generic Key ($PartialKey) trên Máy Ảo! Dấu hiệu bẻ khóa kỹ thuật số MAS HWID" "FAILED"
+        Add-Finding "SPP Licensing" "Generic Key trên Máy Ảo" "FAILED" "Máy ảo ($VmPlatform) được kích hoạt vĩnh viễn bằng Default Generic Key ($PartialKey). Máy ảo không thể sở hữu bản quyền OEM phần cứng. Đây là dấu hiệu đặc trưng 100% của công cụ bẻ khóa kỹ thuật số MAS HWID (Microsoft Activation Scripts)." "Kích hoạt lậu bằng MAS HWID trên máy ảo"
+    } elseif ($IsGenericKey -and -not $Oa3Key) {
+        Write-ResultItem "Đánh giá Product Key" "Generic Key ($PartialKey) không có OEM BIOS. Cần Hóa đơn VAT / Tài khoản MSA" "WARNING"
+        Add-Finding "SPP Licensing" "Generic Key không OEM" "WARNING" "Windows sử dụng Default Generic Key ($PartialKey) nhưng bo mạch chủ không có key OEM gốc. Cần chứng từ Hóa đơn điện tử VAT hoặc tài khoản Microsoft Account (MSA) để chứng minh tính hợp pháp." "Nghi vấn bẻ khóa kỹ thuật số MAS HWID"
+    } elseif ($ProductKeyChannel -match "OEM") {
         Add-Finding "License Channel" "Kênh OEM" "PASSED" "Windows kích hoạt theo bản quyền OEM kèm máy tính." "Tuân thủ hợp pháp nếu mua kèm máy"
     } elseif ($ProductKeyChannel -match "Retail") {
-        Add-Finding "License Channel" "Kênh Retail" "PASSED" "Windows kích hoạt theo bản quyền bán lẻ Retail/FPP." "Hợp pháp nếu có hóa đơn/license hợp lệ"
+        Add-Finding "License Channel" "Kênh Retail" $(if ($IsGenericKey) { "WARNING" } else { "PASSED" }) "Windows kích hoạt theo bản quyền bán lẻ Retail/FPP." "Hợp pháp nếu có hóa đơn/license hợp lệ"
     } elseif ($ProductKeyChannel -match "Volume:MAK") {
         Add-Finding "License Channel" "Kênh Volume:MAK" "PASSED" "Windows kích hoạt qua mã số lượng lớn MAK." "Cần hợp đồng Volume Licensing với Microsoft"
     } elseif ($ProductKeyChannel -match "Volume:GVLK") {
@@ -336,9 +401,9 @@ if ($ProductKeyChannel -match "Volume:GVLK" -or $KmsServer) {
 }
 
 # ==============================================================================
-# 4. KIỂM TRA CHỮ KÝ SỐ FILE HỆ THỐNG & KỸ THUẬT BẺ KHÓA OHOOK (MAS)
+# 4. KIỂM TRA CHỮ KÝ SỐ FILE HỆ THỐNG & KỸ THUẬT BẺ KHÓA OHOOK
 # ==============================================================================
-Write-Section "4. KIỂM TRA CHỮ KÝ SỐ FILE HỆ THỐNG & KỸ THUẬT BẺ KHÓA OHOOK (MAS)"
+Write-Section "4. KIỂM TRA CHỮ KÝ SỐ FILE HỆ THỐNG & KỸ THUẬT BẺ KHÓA OHOOK"
 
 $CriticalLicensingFiles = @(
     "$env:windir\System32\sppc.dll",
@@ -387,13 +452,155 @@ if (Test-Path $SppcSys32) {
 
 if (-not $OhookDetected) {
     Write-ResultItem "Kiểm tra OHOOK / MAS" "Không phát hiện dấu vết bẻ khóa Ohook (sppc.dll/sppcs.dll sạch)" "PASSED"
-    Add-Finding "Ohook Mas Detection" "Ohook MAS Artifacts" "PASSED" "Không phát hiện tệp hoặc cơ chế can thiệp Ohook." "Bình thường"
+    Add-Finding "Ohook Mas Detection" "Ohook Artifacts" "PASSED" "Không phát hiện tệp hoặc cơ chế can thiệp Ohook." "Bình thường"
 }
 
 # ==============================================================================
-# 5. PHÁT HIỆN SppExtComObjHook & CÁC TỆP TIN DLL BẺ KHÓA
+# 5. ĐIỀU TRA PHÁP Y DẤU VẾT BẺ KHÓA MAS & POWERSHELL (HWID, DNS, PREFETCH)
 # ==============================================================================
-Write-Section "5. RÀ SOÁT TỆP HOOK TIẾN TRÌNH (SppExtComObjHook)"
+Write-Section "5. ĐIỀU TRA DẤU VẾT BẺ KHÓA KỸ THUẬT SỐ MAS (HWID, POWERSHELL & PREFETCH)"
+
+$MasTraceFound = $false
+
+# 5.1. Quét Lịch sử dòng lệnh PowerShell (PSReadLine ConsoleHost_history.txt)
+$PsHistoryFiles = [System.Collections.Generic.List[string]]::new()
+$defaultPsHist = "$env:APPDATA\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
+if (Test-Path $defaultPsHist) { $PsHistoryFiles.Add($defaultPsHist) }
+
+$UserProfiles = Get-ChildItem -Path "$env:SystemDrive\Users" -Directory -ErrorAction SilentlyContinue
+foreach ($up in $UserProfiles) {
+    $uHist = "$($up.FullName)\AppData\Roaming\Microsoft\Windows\PowerShell\PSReadLine\ConsoleHost_history.txt"
+    if ((Test-Path $uHist) -and (-not $PsHistoryFiles.Contains($uHist))) {
+        $PsHistoryFiles.Add($uHist)
+    }
+}
+
+$MasPsCommands = [System.Collections.Generic.List[string]]::new()
+$MasPattern = 'get\.activated\.win|massgrave|massgravel|git\.activated\.win|HWID_Activation|MAS_AIO|TSforge|clipup\s+-v\s+-o|gatherosstate|sppcs\.dll|slmgr.*ipk.*VK7JG|irm.*activated\.win|irm.*massgrave'
+
+foreach ($hf in $PsHistoryFiles) {
+    try {
+        $lines = Get-Content -Path $hf -Tail 500 -ErrorAction SilentlyContinue
+        foreach ($l in $lines) {
+            if ($l -match $MasPattern) {
+                $MasPsCommands.Add($l.Trim())
+            }
+        }
+    } catch {}
+}
+
+if ($MasPsCommands.Count -gt 0) {
+    $MasTraceFound = $true
+    $sampleCmd = $MasPsCommands[0]
+    if ($sampleCmd.Length -gt 55) { $sampleCmd = $sampleCmd.Substring(0, 52) + "..." }
+    Write-ResultItem "Lịch sử PowerShell (PSReadLine)" "PHÁT HIỆN LỆNH BẺ KHÓA: $sampleCmd" "FAILED"
+    Add-Finding "MAS Forensics" "PowerShell History" "FAILED" "Tìm thấy lệnh tải/thực thi công cụ bẻ khóa MAS trong lịch sử PowerShell: '$($MasPsCommands[0])'. Đây là chứng cứ người dùng đã trực tiếp chạy lệnh crack." "Bằng chứng pháp lý trực tiếp về hành vi vi phạm"
+} else {
+    Write-ResultItem "Lịch sử PowerShell (PSReadLine)" "Sạch (Không có lệnh irm/iex gọi get.activated.win/massgrave)" "PASSED"
+    Add-Finding "MAS Forensics" "PowerShell History" "PASSED" "Lịch sử PowerShell không chứa lệnh bẻ khóa MAS." "Bình thường"
+}
+
+# 5.2. Quét Nhật ký ScriptBlock Logging (Event ID 4104)
+$PsEventFound = $false
+try {
+    $filterScriptBlock = @{
+        LogName   = 'Microsoft-Windows-PowerShell/Operational'
+        Id        = 4104
+        StartTime = (Get-Date).AddDays(-180)
+    }
+    $events = Get-WinEvent -FilterHashtable $filterScriptBlock -MaxEvents 150 -ErrorAction SilentlyContinue
+    foreach ($evt in $events) {
+        $msg = $evt.Message
+        if ($msg -match 'get\.activated\.win|massgrave\.dev|HWID_Activation|GenuineTicket\.xml|MAS_AIO|clipup\s+-v\s+-o|TSforge') {
+            $PsEventFound = $true
+            break
+        }
+    }
+} catch {}
+
+if ($PsEventFound) {
+    $MasTraceFound = $true
+    Write-ResultItem "Nhật ký PowerShell Event 4104" "PHÁT HIỆN SCRIPTBLOCK CHỨA MÃ NGUỒN BẺ KHÓA MAS!" "FAILED"
+    Add-Finding "MAS Forensics" "Event Log 4104" "FAILED" "Nhật ký PowerShell ScriptBlock ghi nhận sự hiện diện của mã nguồn bẻ khóa MAS (get.activated.win/massgrave)." "Chứng cứ thực thi mã độc hại can thiệp bản quyền"
+} else {
+    Write-ResultItem "Nhật ký PowerShell Event 4104" "Không phát hiện mã crack MAS trong nhật ký hệ thống" "PASSED"
+    Add-Finding "MAS Forensics" "Event Log 4104" "PASSED" "Không có Event 4104 liên quan đến MAS." "Bình thường"
+}
+
+# 5.3. Quét Bộ nhớ đệm DNS (DNS Client Cache)
+$DnsCrackFound = $false
+$DnsEntriesMatched = @()
+try {
+    $dnsEntries = Get-DnsClientCache -ErrorAction SilentlyContinue
+    foreach ($entry in $dnsEntries) {
+        $eName = $entry.Entry
+        $eData = $entry.Data
+        if ($eName -match "get\.activated\.win|massgrave\.dev|activated\.win|git\.activated\.win" -or
+            $eData -match "get\.activated\.win|massgrave\.dev|activated\.win|git\.activated\.win") {
+            $DnsCrackFound = $true
+            $DnsEntriesMatched += $eName
+        }
+    }
+} catch {}
+
+if ($DnsCrackFound) {
+    $MasTraceFound = $true
+    $dnsString = ($DnsEntriesMatched | Select-Object -Unique) -join ", "
+    Write-ResultItem "DNS Client Cache" "PHÁT HIỆN TÊN MIỀN CRACK: $dnsString" "FAILED"
+    Add-Finding "MAS Forensics" "DNS Cache" "FAILED" "Máy tính vừa phân giải tên miền máy chủ phân phối công cụ bẻ khóa: $dnsString." "Dấu vết mạng truy cập trang web crack MAS"
+} else {
+    Write-ResultItem "DNS Client Cache" "Sạch (Không có tên miền get.activated.win/massgrave)" "PASSED"
+    Add-Finding "MAS Forensics" "DNS Cache" "PASSED" "DNS Cache sạch." "Bình thường"
+}
+
+# 5.4. Quét Tệp Prefetch (GATHEROSSTATE.EXE & CLIPUP.EXE)
+$PrefetchGatheros = Test-Path "$env:windir\Prefetch\GATHEROSSTATE.EXE-*.pf"
+$PrefetchClipup   = Test-Path "$env:windir\Prefetch\CLIPUP.EXE-*.pf"
+
+if ($PrefetchGatheros) {
+    $MasTraceFound = $true
+    Write-ResultItem "Prefetch gatherosstate.exe" "PHÁT HIỆN GATHEROSSTATE TRÊN WINDOWS 10/11!" "FAILED"
+    Add-Finding "MAS Forensics" "Gatherosstate Prefetch" "FAILED" "Phát hiện tệp Prefetch của gatherosstate.exe. Công cụ trích xuất vé Win 7/8 này chỉ được script bẻ khóa MAS HWID sử dụng để tạo vé giả mạo trên Win 10/11." "Chứng cứ pháp y giả mạo vé bản quyền kỹ thuật số"
+} else {
+    Write-ResultItem "Prefetch gatherosstate.exe" "Sạch (Không phát hiện công cụ trích xuất vé lậu)" "PASSED"
+    Add-Finding "MAS Forensics" "Gatherosstate Prefetch" "PASSED" "Không có gatherosstate trong Prefetch." "Bình thường"
+}
+
+# 5.5. Quét Thư mục vé ClipSVC & Temp Logs của MAS
+$GenuineTicketDir = "$env:ProgramData\Microsoft\Windows\ClipSVC\GenuineTicket"
+$HasTicketDir = Test-Path $GenuineTicketDir
+
+$TempSearchDirs = @($env:TEMP, "$env:windir\Temp")
+$FoundMasLogs = @()
+foreach ($td in $TempSearchDirs) {
+    if (Test-Path $td) {
+        $dbg = "$td\_Debug.log"
+        if (Test-Path $dbg) {
+            try {
+                $content = Get-Content $dbg -Tail 30 -ErrorAction SilentlyContinue
+                if ($content -match "HWID Activation|massgrave|ClipSVC|get\.activated\.win|MAS") {
+                    $FoundMasLogs += $dbg
+                }
+            } catch {}
+        }
+        $masDirs = Get-ChildItem -Path $td -Filter "*MAS*" -Directory -ErrorAction SilentlyContinue
+        foreach ($md in $masDirs) { $FoundMasLogs += $md.FullName }
+    }
+}
+
+if ($FoundMasLogs.Count -gt 0) {
+    $MasTraceFound = $true
+    Write-ResultItem "Tệp nhật ký tạm MAS" "PHÁT HIỆN: $($FoundMasLogs[0])" "FAILED"
+    Add-Finding "MAS Forensics" "MAS Temp Logs" "FAILED" "Phát hiện thư mục hoặc tệp log tạm thời của script bẻ khóa MAS: $($FoundMasLogs -join '; ')." "Dấu vết tệp tin bẻ khóa trên ổ đĩa"
+} else {
+    Write-ResultItem "Tệp nhật ký tạm MAS" "Sạch (Không có tệp log _Debug.log hoặc thư mục MAS rác)" "PASSED"
+    Add-Finding "MAS Forensics" "MAS Temp Logs" "PASSED" "Thư mục tạm thời sạch." "Bình thường"
+}
+
+# ==============================================================================
+# 6. PHÁT HIỆN SppExtComObjHook & CÁC TỆP TIN DLL BẺ KHÓA
+# ==============================================================================
+Write-Section "6. RÀ SOÁT TỆP HOOK TIẾN TRÌNH (SppExtComObjHook)"
 
 $HookArtifacts = @(
     "$env:windir\System32\SppExtComObjHook.dll",
@@ -419,9 +626,9 @@ if (-not $HookFound) {
 }
 
 # ==============================================================================
-# 6. PHÁT HIỆN CAN THIỆP REGISTRY & IFEO DEBUGGER HIJACKING
+# 7. PHÁT HIỆN CAN THIỆP REGISTRY & IFEO DEBUGGER HIJACKING
 # ==============================================================================
-Write-Section "6. RÀ SOÁT REGISTRY CAN THIỆP & IFEO DEBUGGER HIJACKING"
+Write-Section "7. RÀ SOÁT REGISTRY CAN THIỆP & IFEO DEBUGGER HIJACKING"
 
 $IfeoTarget = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\SppExtComObj.exe"
 $IfeoOspp = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\osppsvc.exe"
@@ -489,9 +696,9 @@ if (-not $GhostDetected) {
 }
 
 # ==============================================================================
-# 7. QUÉT THƯ MỤC & CÔNG CỤ BẺ KHÓA TRÊN ĐĨA CỨNG
+# 8. QUÉT THƯ MỤC & CÔNG CỤ BẺ KHÓA TRÊN ĐĨA CỨNG
 # ==============================================================================
-Write-Section "7. QUÉT CÔNG CỤ & TỆP TIN BẺ KHÓA (KMSpico, AutoKMS, KMSAuto, MAS...)"
+Write-Section "8. QUÉT CÔNG CỤ & TỆP TIN BẺ KHÓA (KMSpico, AutoKMS, KMSAuto, MAS...)"
 
 $CrackPaths = @(
     "$env:ProgramFiles\KMSpico",
@@ -535,9 +742,9 @@ if (-not $CrackFoundOnDisk) {
 }
 
 # ==============================================================================
-# 8. QUÉT TÁC VỤ ĐẶT LỊCH (SCHEDULED TASKS) DUY TRÌ BẢN QUYỀN LẬU
+# 9. QUÉT TÁC VỤ ĐẶT LỊCH (SCHEDULED TASKS) DUY TRÌ BẢN QUYỀN LẬU
 # ==============================================================================
-Write-Section "8. RÀ SOÁT TÁC VỤ LÊN LỊCH TỰ ĐỘNG RE-ARM (SCHEDULED TASKS)"
+Write-Section "9. RÀ SOÁT TÁC VỤ LÊN LỊCH TỰ ĐỘNG RE-ARM (SCHEDULED TASKS)"
 
 $SuspiciousTaskPatterns = @("AutoKMS", "KMSpico", "KMSAuto", "AAct", "AutoPico")
 $TasksFound = $false
@@ -561,9 +768,9 @@ if (-not $TasksFound) {
 }
 
 # ==============================================================================
-# 9. KIỂM TRA DANH SÁCH LOẠI TRỪ CỦA WINDOWS DEFENDER (DEFENDER EXCLUSIONS)
+# 10. KIỂM TRA DANH SÁCH LOẠI TRỪ CỦA WINDOWS DEFENDER (DEFENDER EXCLUSIONS)
 # ==============================================================================
-Write-Section "9. KIỂM TRA LOẠI TRỪ CỦA WINDOWS DEFENDER (DEFENDER TAMPERING)"
+Write-Section "10. KIỂM TRA LOẠI TRỪ CỦA WINDOWS DEFENDER (DEFENDER TAMPERING)"
 
 if ($IsAdmin) {
     try {
@@ -612,9 +819,9 @@ if ($IsAdmin) {
 }
 
 # ==============================================================================
-# 10. KIỂM TRA CAN THIỆP FILE HOSTS (CHUYỂN HƯỚNG MÁY CHỦ BẢN QUYỀN)
+# 11. KIỂM TRA CAN THIỆP FILE HOSTS (CHUYỂN HƯỚNG MÁY CHỦ BẢN QUYỀN)
 # ==============================================================================
-Write-Section "10. RÀ SOÁT TỆP TIN HOSTS (CHUYỂN HƯỚNG MÁY CHỦ MICROSOFT)"
+Write-Section "11. RÀ SOÁT TỆP TIN HOSTS (CHUYỂN HƯỚNG MÁY CHỦ MICROSOFT)"
 
 $HostsPath = "$env:windir\System32\drivers\etc\hosts"
 $HostsTampered = $false
@@ -643,14 +850,27 @@ if (-not $HostsTampered) {
 }
 
 # ==============================================================================
-# 11. ĐỐI SOÁT HÓA ĐƠN ĐIỆN TỬ VAT THỰC TẾ (INVOICE PROCUREMENT AUDIT)
+# 12. ĐỐI SOÁT HÓA ĐƠN ĐIỆN TỬ VAT THỰC TẾ (INVOICE PROCUREMENT AUDIT)
 # ==============================================================================
-Write-Section "11. ĐỐI SOÁT HÓA ĐƠN ĐIỆN TỬ VAT THỰC TẾ (NGHỊ ĐỊNH 341/2025/NĐ-CP)"
+Write-Section "12. ĐỐI SOÁT HÓA ĐƠN ĐIỆN TỬ VAT THỰC TẾ (NGHỊ ĐỊNH 341/2025/NĐ-CP)"
 
 $MatchedInvoice = $null
-$InvoiceStatus = "NOT_CHECKED"
 $InvoiceStatusDetails = ""
 $InvoiceDatabase = [System.Collections.Generic.List[PSObject]]::new()
+
+function Test-IsPlaceholderInvoice {
+    param ($inv)
+    if (-not $inv) { return $false }
+    $bName = if ($inv.BuyerName) { $inv.BuyerName.ToString().ToUpper() } else { "" }
+    $bTax  = if ($inv.BuyerTaxId) { $inv.BuyerTaxId.ToString().Trim() } else { "" }
+    if ($bName -match "DOANH NGHIỆP CỦA BẠN|CONG TY CUA BAN|YOUR COMPANY|EXAMPLE CORP|TEN CONG TY") {
+        return $true
+    }
+    if ($bTax -in @("0109876543", "109876543", "0123456789", "1234567890")) {
+        return $true
+    }
+    return $false
+}
 
 # Nguồn 1: Fetch qua REST API nội bộ doanh nghiệp nếu được cung cấp
 if ($InvoiceApiUrl) {
@@ -694,6 +914,7 @@ if ($InvoiceFile -and (Test-Path $InvoiceFile)) {
     }
 }
 
+$HasOnlyPlaceholders = $false
 if ($ResolvedInvoiceFile) {
     Write-ResultItem "Kho Hóa đơn (File)" "Đang nạp dữ liệu: $ResolvedInvoiceFile" "INFO"
     try {
@@ -708,29 +929,42 @@ if ($ResolvedInvoiceFile) {
             $csvData = Import-Csv $ResolvedInvoiceFile -Encoding UTF8
             foreach ($entry in $csvData) { $InvoiceDatabase.Add($entry) }
         }
-        Write-ResultItem "Kho Hóa đơn (File)" "Đã nạp thành công $($InvoiceDatabase.Count) chứng từ hóa đơn" "PASSED"
+        
+        $placeholderCount = @($InvoiceDatabase | Where-Object { Test-IsPlaceholderInvoice $_ }).Count
+        if ($placeholderCount -eq $InvoiceDatabase.Count -and $InvoiceDatabase.Count -gt 0) {
+            $HasOnlyPlaceholders = $true
+            Write-ResultItem "Kho Hóa đơn (File)" "CẢNH BÁO: Tệp hóa đơn chỉ chứa dữ liệu mẫu giả định (Placeholder: 'CÔNG TY DOANH NGHIỆP CỦA BẠN')!" "WARNING"
+            Add-Finding "Invoice Audit" "Placeholder Invoices" "WARNING" "Tệp hóa đơn ($ResolvedInvoiceFile) là file mẫu mặc định của dự án. Bỏ qua việc tự động ghép hóa đơn để tránh cấp chứng nhận sai lệch cho máy chưa cấu hình hóa đơn thật." "Chưa cấu hình hóa đơn thực tế của doanh nghiệp"
+        } else {
+            Write-ResultItem "Kho Hóa đơn (File)" "Đã nạp thành công $($InvoiceDatabase.Count) chứng từ hóa đơn" "PASSED"
+        }
     } catch {
         Write-ResultItem "Kho Hóa đơn (File)" "Lỗi đọc tệp hóa đơn: $($_.Exception.Message)" "WARNING"
     }
 }
 
-# Tiến hành đối soát máy tính hiện tại với cơ sở dữ liệu hóa đơn (Ưu tiên khớp chính xác thiết bị trước, sau đó mới tới gói pool tập trung)
-if ($InvoiceDatabase.Count -gt 0) {
+# Tiến hành đối soát máy tính hiện tại với cơ sở dữ liệu hóa đơn
+if ($InvoiceDatabase.Count -gt 0 -and -not $HasOnlyPlaceholders) {
     # Vòng 1: Tìm hóa đơn khớp trực tiếp phần cứng / thiết bị
     foreach ($inv in $InvoiceDatabase) {
-        if ($inv.TargetIdentifier -and $HardwareSerial -ne "Unknown" -and ($inv.TargetIdentifier.ToString().Trim().ToUpper() -eq $HardwareSerial.ToUpper())) {
+        if (Test-IsPlaceholderInvoice $inv) { continue }
+
+        # 1. Khớp theo Service Tag / Serial phần cứng
+        if ($inv.TargetIdentifier -and $HardwareSerial -ne "Unknown" -and -not ($HardwareSerial -like "*VMware*") -and ($inv.TargetIdentifier.ToString().Trim().ToUpper() -eq $HardwareSerial.ToUpper())) {
             $MatchedInvoice = $inv
             $InvoiceStatusDetails = "Khớp chính xác Service Tag/Serial phần cứng máy: $HardwareSerial"
             break
         }
-        elseif ($inv.TargetIdentifier -and ($inv.TargetIdentifier.ToString().Trim().ToUpper() -eq $ComputerName.ToUpper())) {
+        # 2. Khớp theo Tên máy tính (Hostname)
+        elseif ($inv.TargetIdentifier -and -not ($ComputerName -like "DESKTOP-*") -and ($inv.TargetIdentifier.ToString().Trim().ToUpper() -eq $ComputerName.ToUpper())) {
             $MatchedInvoice = $inv
             $InvoiceStatusDetails = "Khớp chính xác Tên máy tính (Hostname): $ComputerName"
             break
         }
-        elseif ($inv.TargetKey -and (($Oa3Key -and $inv.TargetKey -like "*$Oa3Key*") -or ($PartialKey -ne "None" -and $inv.TargetKey -like "*$PartialKey*"))) {
+        # 3. Khớp theo khóa bản quyền phần cứng riêng lẻ (Không khớp Generic Key)
+        elseif ($inv.TargetKey -and -not $IsGenericKey -and (($Oa3Key -and $inv.TargetKey -like "*$Oa3Key*") -or ($PartialKey -ne "None" -and $inv.TargetKey -like "*$PartialKey*"))) {
             $MatchedInvoice = $inv
-            $InvoiceStatusDetails = "Khớp khóa bản quyền phần cứng: $(if ($Oa3Key) { $Oa3Key } else { $PartialKey })"
+            $InvoiceStatusDetails = "Khớp khóa bản quyền riêng biệt: $(if ($Oa3Key) { $Oa3Key } else { $PartialKey })"
             break
         }
     }
@@ -738,10 +972,27 @@ if ($InvoiceDatabase.Count -gt 0) {
     # Vòng 2: Nếu chưa có hóa đơn riêng lẻ, tìm hóa đơn gói bản quyền tập trung doanh nghiệp (Enterprise Pool)
     if (-not $MatchedInvoice) {
         foreach ($inv in $InvoiceDatabase) {
+            if (Test-IsPlaceholderInvoice $inv) { continue }
             if ($inv.TargetIdentifier -and ($inv.TargetIdentifier.ToString().ToUpper() -eq "ALL_ENTERPRISE_POOL")) {
-                $MatchedInvoice = $inv
-                $InvoiceStatusDetails = "Nằm trong Hợp đồng/Hóa đơn mua gói bản quyền tập trung toàn doanh nghiệp"
-                break
+                $CanClaimPool = $false
+                $PoolReason = ""
+
+                if ($ExpectedTaxId -and $inv.BuyerTaxId -and ($inv.BuyerTaxId.Trim() -eq $ExpectedTaxId.Trim())) {
+                    $CanClaimPool = $true
+                    $PoolReason = "Xác thực qua Mã số thuế doanh nghiệp ($ExpectedTaxId)"
+                } elseif ($DomainJoined) {
+                    $CanClaimPool = $true
+                    $PoolReason = "Xác thực qua máy trạm thuộc Active Directory Domain ($DomainName)"
+                }
+
+                if ($CanClaimPool) {
+                    $MatchedInvoice = $inv
+                    $InvoiceStatusDetails = "Nằm trong Hợp đồng/Hóa đơn mua gói bản quyền tập trung toàn doanh nghiệp ($PoolReason)"
+                    break
+                } else {
+                    Write-ResultItem "Đối soát Enterprise Pool" "Từ chối ghép Hóa đơn gói tập trung: Máy tính Workgroup/Máy ảo không có Domain hoặc MST xác thực" "WARNING"
+                    Add-Finding "Invoice Audit" "Enterprise Pool Rejected" "WARNING" "Không thể áp dụng Hóa đơn gói tập trung ($($inv.InvoiceNumber)) cho thiết bị này vì máy đang ở Workgroup cá nhân và không có tham số xác minh Mã số thuế (-ExpectedTaxId)." "Cần xác thực quyền sở hữu doanh nghiệp"
+                }
             }
         }
     }
@@ -763,13 +1014,16 @@ if ($MatchedInvoice) {
     Write-ResultItem "Đơn vị mua hàng (Buyer)" "$invBuyer (MST: $invBuyerTaxId)" "INFO"
     Write-ResultItem "Nội dung mặt hàng trên HĐ" "$invItem" "INFO"
 
-    # Kiểm tra tính tương thích phiên bản (Ví dụ: Máy cài Pro nhưng hóa đơn chỉ mua Home)
     $EditionMismatch = $false
     if ($OSCaption -like "*Pro*" -and $invEdition -and $invEdition -like "*Home*") {
         $EditionMismatch = $true
     }
 
-    # Kiểm tra Mã số thuế Doanh nghiệp nếu được chỉ định
+    $ChannelMismatch = $false
+    if ($IsGenericKey -and $IsVirtualMachine -and $MatchedInvoice.LicenseType -match "CSP|Volume") {
+        $ChannelMismatch = $true
+    }
+
     $TaxIdMismatch = $false
     if ($ExpectedTaxId -and $invBuyerTaxId -and ($invBuyerTaxId.Trim() -ne $ExpectedTaxId.Trim())) {
         $TaxIdMismatch = $true
@@ -777,7 +1031,10 @@ if ($MatchedInvoice) {
 
     if ($EditionMismatch) {
         Write-ResultItem "Xác thực Hóa đơn" "LỆCH PHIÊN BẢN: Máy chạy Windows Pro nhưng hóa đơn chỉ mua Windows Home!" "FAILED"
-        Add-Finding "Invoice Audit" "Edition Mismatch" "FAILED" "Thiết bị đang cài Windows Pro nhưng hóa đơn số $invNum chỉ cấp phép bản Home. Đây là lỗi vi phạm bản quyền rất phổ biến bị phạt nặng khi thanh tra theo NĐ 341/2025/NĐ-CP." "Vi phạm bản quyền do nâng cấp trái phép"
+        Add-Finding "Invoice Audit" "Edition Mismatch" "FAILED" "Thiết bị đang cài Windows Pro nhưng hóa đơn số $invNum chỉ cấp phép bản Home. Đây là lỗi vi phạm bản quyền bị phạt rất nặng theo NĐ 341/2025/NĐ-CP." "Vi phạm bản quyền do nâng cấp trái phép"
+    } elseif ($ChannelMismatch) {
+        Write-ResultItem "Xác thực Hóa đơn" "LỆCH KÊNH BẢN QUYỀN: Hóa đơn là gói CSP/Volume nhưng máy lại kích hoạt bằng Retail Generic Key ($PartialKey)!" "WARNING"
+        Add-Finding "Invoice Audit" "Channel Mismatch" "WARNING" "Hóa đơn là gói doanh nghiệp (CSP/Volume), nhưng máy trạm lại kích hoạt qua kênh Retail cá nhân bằng Generic Key ($PartialKey). Điều này xảy ra khi máy chưa được gán license bản quyền từ CSP portal mà bị bẻ khóa MAS HWID lậu." "Rủi ro bị bác bỏ khi thanh tra"
     } elseif ($TaxIdMismatch) {
         Write-ResultItem "Xác thực Hóa đơn" "MÃ SỐ THUẾ KHÔNG KHỚP: MST trên hóa đơn ($invBuyerTaxId) khác MST doanh nghiệp ($ExpectedTaxId)!" "WARNING"
         Add-Finding "Invoice Audit" "Tax ID Mismatch" "WARNING" "Hóa đơn số $invNum đứng tên MST khác ($invBuyerTaxId). Không chứng minh được tài sản thuộc quyền sở hữu của doanh nghiệp bạn." "Nguy cơ bị loại trừ chứng từ hợp lệ"
@@ -786,22 +1043,22 @@ if ($MatchedInvoice) {
         Add-Finding "Invoice Audit" "VAT Invoice Verified" "PASSED" "Đã đối soát thành công Hóa đơn điện tử VAT Số: $invNum, Ký hiệu: $invSeries, Ngày: $invDate từ nhà cung cấp $invVendor. Đạt chuẩn chứng từ theo Nghị định 341/2025/NĐ-CP." "Đầy đủ chứng từ pháp lý xuất trình thanh tra"
     }
 } else {
-    Write-ResultItem "Đối soát Hóa đơn VAT" "CHƯA TÌM THẤY HÓA ĐƠN ĐỐI ỨNG TRONG KHO DỮ LIỆU" $(if ($RequireInvoice) { "WARNING" } else { "SUSPICIOUS" })
-    Add-Finding "Invoice Audit" "Missing VAT Invoice" $(if ($RequireInvoice) { "WARNING" } else { "SUSPICIOUS" }) "Chưa tìm thấy hóa đơn GTGT hoặc hợp đồng cấp phép mua sắm phần mềm tương ứng với thiết bị này (Serial: $HardwareSerial, Hostname: $ComputerName)." "Theo Nghị định 341/2025/NĐ-CP, việc không xuất trình được hóa đơn tài chính hợp pháp khi thanh tra sẽ bị xử phạt vi phạm hành chính"
+    $invNotice = if ($HasOnlyPlaceholders) { "TỆP HÓA ĐƠN CHỈ LÀ DỮ LIỆU MẪU MẶC ĐỊNH (CẦN CẤU HÌNH HÓA ĐƠN THẬT)" } else { "CHƯA TÌM THẤY HÓA ĐƠN ĐỐI ỨNG TRONG KHO DỮ LIỆU" }
+    Write-ResultItem "Đối soát Hóa đơn VAT" $invNotice $(if ($RequireInvoice) { "WARNING" } else { "SUSPICIOUS" })
+    Add-Finding "Invoice Audit" "Missing VAT Invoice" $(if ($RequireInvoice) { "WARNING" } else { "SUSPICIOUS" }) "Chưa tìm thấy hóa đơn GTGT hoặc hợp đồng cấp phép phần mềm hợp lệ cho thiết bị này (Serial: $HardwareSerial, Hostname: $ComputerName)." "Theo Nghị định 341/2025/NĐ-CP, không xuất trình được hóa đơn tài chính khi thanh tra sẽ bị xử phạt vi phạm hành chính"
 }
 
 # ==============================================================================
-# 12. TỔNG HỢP ĐÁNH GIÁ PHÁP LÝ & KẾT LUẬN TUÂN THỦ (NGHỊ ĐỊNH 341/2025/NĐ-CP)
+# 13. TỔNG HỢP ĐÁNH GIÁ PHÁP LÝ & KẾT LUẬN TUÂN THỦ (NGHỊ ĐỊNH 341/2025/NĐ-CP)
 # ==============================================================================
-Write-Section "12. KẾT LUẬN TUÂN THỦ & ĐÁNH GIÁ RỦI RO PHÁP LÝ DOANH NGHIỆP"
+Write-Section "13. KẾT LUẬN TUÂN THỦ & ĐÁNH GIÁ RỦI RO PHÁP LÝ DOANH NGHIỆP"
 
 $CountFailed = @($AuditFindings | Where-Object { $_.Status -eq "FAILED" }).Count
 $CountWarning = @($AuditFindings | Where-Object { $_.Status -eq "WARNING" }).Count
 $CountSuspicious = @($AuditFindings | Where-Object { $_.Status -eq "SUSPICIOUS" }).Count
 $CountPassed = @($AuditFindings | Where-Object { $_.Status -eq "PASSED" }).Count
 
-# Đếm các lỗi nghi vấn kỹ thuật (loại trừ trường hợp chỉ thiếu quyền Admin quét Defender)
-$TechSuspicious = @($AuditFindings | Where-Object { $_.Status -in @("SUSPICIOUS", "WARNING") -and $_.Category -ne "Defender Exclusions" -and $_.Category -ne "Script Execution" -and $_.Category -ne "Invoice Audit" }).Count
+$TechSuspicious = @($AuditFindings | Where-Object { $_.Status -in @("SUSPICIOUS", "WARNING") -and $_.Category -ne "Defender Exclusions" -and $_.Category -ne "Script Execution" -and $_.Category -ne "Invoice Audit" -and $_.Category -ne "Hardware Platform" }).Count
 $HasInvoicePassed = ($MatchedInvoice -ne $null -and @($AuditFindings | Where-Object { $_.Item -eq "VAT Invoice Verified" -and $_.Status -eq "PASSED" }).Count -gt 0)
 
 $FinalVerdict = "GENUINE_COMPLIANT"
@@ -812,19 +1069,27 @@ $ActionGuidance = ""
 
 if ($CountFailed -gt 0) {
     $FinalVerdict = "CRITICAL_PIRATED_CRACKED"
-    $VerdictTitle = "NGUY CƠ CAO: PHÁT HIỆN SỬ DỤNG WINDOWS LẬU / CÔNG CỤ BẺ KHÓA"
+    $VerdictTitle = "NGUY CƠ CAO: PHÁT HIỆN SỬ DỤNG WINDOWS LẬU / CÔNG CỤ BẺ KHÓA (MAS/HWID/KMS)"
     $VerdictColor = "Red"
     $ExitCode = 3
+
+    $failedItemsSummary = ($AuditFindings | Where-Object { $_.Status -eq "FAILED" } | ForEach-Object { "- $($_.Category) [$($_.Item)]: $($_.Details)" }) -join "`r`n"
+
     $ActionGuidance = @"
-[CẢNH BÁO PHÁP LÝ CHO DOANH NGHIỆP THEO NGHỊ ĐỊNH 341/2025/NĐ-CP]:
-1. Máy tính này đang chứa các công cụ bẻ khóa, file hệ thống bị vá (Ohook/KMS Hook) hoặc máy chủ kích hoạt lậu.
-2. Khi cơ quan Thanh tra liên ngành kiểm tra, doanh nghiệp sẽ bị lập biên bản xử phạt vi phạm hành chính về quyền tác giả,
-   mức phạt đối với pháp nhân có thể lên đến hàng trăm triệu đồng, đồng thời bị buộc tiêu hủy bản sao lậu và công khai xin lỗi.
-3. HÀNH ĐỘNG KHẮC PHỤC NGAY:
-   - Gỡ bỏ hoàn toàn các công cụ crack, xóa các Scheduled Task và Defender Exclusions đã phát hiện.
-   - Chạy lệnh 'sfc /scannow' và 'dism /online /cleanup-image /restorehealth' với quyền Admin để khôi phục sppc.dll gốc của Microsoft.
-   - Nếu máy có OEM Key trong BIOS (MSDM: $Oa3Key): Dùng lệnh 'slmgr.vbs /ipk $Oa3Key' và 'slmgr.vbs /ato' để kích hoạt bản quyền gốc hợp pháp.
-   - Nếu không có key OEM: Tiến hành mua giấy phép bản quyền Windows Pro chính hãng (Microsoft CSP / ESD) có đầy đủ Hóa đơn GTGT (VAT).
+[CẢNH BÁO PHÁP LÝ KHẨN CẤP CHO DOANH NGHIỆP THEO NGHỊ ĐỊNH 341/2025/NĐ-CP]:
+1. HỆ THỐNG ĐÃ PHÁT HIỆN CÁC DẤU VẾT BẺ KHÓA VÀ GIAN LẬN BẢN QUYỀN SAU:
+$failedItemsSummary
+
+2. RỦI RO PHÁP LÝ:
+   - Theo Nghị định 341/2025/NĐ-CP và Điều 225 Bộ luật Hình sự, việc sử dụng các công cụ bẻ khóa (MAS, HWID, KMS, Ohook)
+     bị coi là hành vi cố ý can thiệp trái phép vào hệ điều hành và vi phạm quyền tác giả đối với pháp nhân thương mại.
+   - Màn hình hiển thị 'Windows is activated' hoàn toàn vô giá trị khi chữ ký bẻ khóa và lịch sử dòng lệnh bị bóc tách.
+
+3. HÀNH ĐỘNG KHẮC PHỤC NGAY LẬP TỨC:
+   - Xóa bỏ lịch sử dòng lệnh và các tệp script bẻ khóa tồn lưu.
+   - Gỡ bỏ product key lậu bằng lệnh Administrator: 'slmgr.vbs /upk' và 'slmgr.vbs /cpky'.
+   - Nếu máy tính vật lý có OEM Key trong BIOS (MSDM: $Oa3Key): Chạy 'slmgr.vbs /ipk $Oa3Key' và 'slmgr.vbs /ato' để hoàn nguyên bản quyền hợp pháp.
+   - Nếu là máy ảo ($VmPlatform) hoặc máy không có OEM key: Mua giấy phép bản quyền Windows Pro chính hãng (Microsoft CSP/ESD) có đầy đủ Hóa đơn GTGT (VAT) và mã định danh doanh nghiệp.
 "@
 } elseif ($LicenseStatusCode -ne 1) {
     $FinalVerdict = "NON_COMPLIANT_UNLICENSED"
@@ -850,8 +1115,7 @@ if ($CountFailed -gt 0) {
 3. Theo quy định của Nghị định 341/2025/NĐ-CP, việc không xuất trình được hóa đơn tài chính hợp pháp tại thời điểm thanh tra
    sẽ bị coi là hành vi sử dụng phần mềm không phép và có nguy cơ bị xử phạt hành chính.
 4. HÀNH ĐỘNG KHẮC PHỤC:
-   - Bộ phận Kế toán & IT rà soát lại hóa đơn mua máy tính (có kèm OEM Windows) hoặc hóa đơn mua gói phần mềm ESD/CSP
-     và cập nhật số hóa đơn vào file 'invoices.json' / 'invoices.csv' của công ty để hoàn thiện hồ sơ thanh tra.
+   - Cập nhật số hóa đơn vào file 'invoices.json' / 'invoices.csv' của công ty để hoàn thiện hồ sơ thanh tra.
 "@
 } elseif ($TechSuspicious -gt 0) {
     $FinalVerdict = "SUSPICIOUS_UNVERIFIED"
@@ -860,12 +1124,12 @@ if ($CountFailed -gt 0) {
     $ExitCode = 1
     $ActionGuidance = @"
 [LƯU Ý ĐỐI SOÁT CHỨNG TỪ DOANH NGHIỆP]:
-1. Hệ thống đang báo đã kích hoạt, tuy nhiên đang sử dụng kênh cấp phép Volume License (KMS/MAK) hoặc có dấu hiệu cài đặt lại.
-2. Về mặt pháp lý: Thanh tra bản quyền KHÔNG CHỈ nhìn vào màn hình 'Windows is activated' mà BẮT BUỘC kiểm tra:
+1. Hệ thống đang báo đã kích hoạt, tuy nhiên đang sử dụng Generic Key ($PartialKey) không có OEM BIOS, hoặc Volume KMS chưa rõ nguồn gốc.
+2. Về mặt pháp lý: Đoàn thanh tra bản quyền BẮT BUỘC kiểm tra:
    - Hóa đơn tài chính (Hóa đơn điện tử VAT) chứng minh việc mua bản quyền.
-   - Hợp đồng thỏa thuận cấp phép số lượng lớn (Volume Licensing / Enterprise Agreement / CSP) giữa công ty và Microsoft/Đối tác ủy quyền.
+   - Hợp đồng thỏa thuận cấp phép số lượng lớn (Volume Licensing / Enterprise Agreement / CSP).
 3. HÀNH ĐỘNG KHẮC PHỤC:
-   - Bộ phận IT phối hợp cùng Kế toán kiểm tra lại hồ sơ chứng từ lưu trữ của thiết bị này để đảm bảo sẵn sàng khi có thanh kiểm tra.
+   - Bộ phận IT phối hợp cùng Kế toán kiểm tra lại hồ sơ chứng từ lưu trữ của thiết bị này.
 "@
 } else {
     $FinalVerdict = "GENUINE_COMPLIANT"
@@ -876,15 +1140,18 @@ if ($CountFailed -gt 0) {
     }
     $VerdictColor = "Green"
     $ExitCode = 0
+    
+    $invClause = if ($HasInvoicePassed) {
+        "3. [XÁC THỰC THÀNH CÔNG]: Thiết bị đã được liên kết với Hóa đơn điện tử VAT hợp lệ (Số: $($MatchedInvoice.InvoiceNumber), Ngày: $($MatchedInvoice.InvoiceDate) của $($MatchedInvoice.VendorName)). ĐẦY ĐỦ HỒ SƠ PHÁP LÝ ĐỂ XUẤT TRÌNH THANH TRA."
+    } else {
+        "3. [LƯU Ý CHỨNG TỪ]: Doanh nghiệp cần đảm bảo lưu giữ Hóa đơn VAT / Thỏa thuận mua bản quyền tương ứng với thiết bị này (Serial: $HardwareSerial) trong hồ sơ kế toán."
+    }
+
     $ActionGuidance = @"
 [ĐÁNH GIÁ PHÁP LÝ THEO NGHỊ ĐỊNH 341/2025/NĐ-CP]:
 1. Hệ điều hành đã kích hoạt hợp pháp qua kênh chính thức ($ProductKeyChannel), các file hệ thống và chữ ký số nguyên bản của Microsoft.
-2. Không phát hiện bất kỳ dấu vết công cụ bẻ khóa, DLL Hook, máy chủ KMS lạ hay tác vụ can thiệp ngầm.
-$(if ($HasInvoicePassed) {
-"3. [XÁC THỰC THÀNH CÔNG]: Thiết bị đã được liên kết với Hóa đơn điện tử VAT hợp lệ (Số: $($MatchedInvoice.InvoiceNumber), Ngày: $($MatchedInvoice.InvoiceDate) của $($MatchedInvoice.VendorName)). ĐẦY ĐỦ HỒ SƠ PHÁP LÝ ĐỂ XUẤT TRÌNH THANH TRA."
-} else {
-"3. [LƯU Ý CHỨNG TỪ]: Doanh nghiệp cần đảm bảo lưu giữ Hóa đơn VAT / Thỏa thuận mua bản quyền tương ứng với thiết bị này (Serial: $HardwareSerial) trong hồ sơ kế toán."
-})
+2. Không phát hiện bất kỳ dấu vết công cụ bẻ khóa (MAS, HWID, KMS38, Ohook), DLL Hook, máy chủ KMS lạ hay tác vụ can thiệp ngầm.
+$invClause
 "@
 }
 
@@ -901,7 +1168,7 @@ if (-not $Quiet) {
 }
 
 # ==============================================================================
-# 13. XUẤT BÁO CÁO (HTML / JSON / CSV)
+# 14. XUẤT BÁO CÁO (HTML / JSON / CSV)
 # ==============================================================================
 $EndTime = Get-Date
 $ExecutionDuration = [math]::Round(($EndTime - $StartTime).TotalSeconds, 2)
@@ -928,7 +1195,7 @@ $InvoiceReportData = if ($MatchedInvoice) {
         InvoiceDate     = "None"
         VendorName      = "None"
         BuyerTaxId      = "None"
-        MatchReason     = "Chưa tìm thấy hóa đơn đối ứng trong hệ thống"
+        MatchReason     = if ($HasOnlyPlaceholders) { "Kho hóa đơn chỉ là dữ liệu mẫu giả định (Placeholder)" } else { "Chưa tìm thấy hóa đơn đối ứng trong hệ thống" }
     }
 }
 
@@ -936,6 +1203,8 @@ $ReportObject = [PSCustomObject]@{
     ComputerName       = $ComputerName
     HardwareSerial     = $HardwareSerial
     HardwareUUID       = $HardwareUUID
+    IsVirtualMachine   = $IsVirtualMachine
+    VmPlatform         = $VmPlatform
     CurrentUser        = $CurrentUser
     OSCaption          = $OSCaption
     OSVersion          = $OSVersion
@@ -948,7 +1217,10 @@ $ReportObject = [PSCustomObject]@{
     LicenseStatus      = $LicenseStatusString
     ProductKeyChannel  = $ProductKeyChannel
     PartialKey         = $PartialKey
+    IsGenericKey       = $IsGenericKey
     IsPermanent        = $IsPermanentActivation
+    IsKms38Crack       = $IsKms38Crack
+    MasTraceFound      = $MasTraceFound
     KmsServer          = $KmsServer
     InvoiceVerified    = $HasInvoicePassed
     InvoiceData        = $InvoiceReportData
@@ -984,12 +1256,15 @@ if ($ExportCsv) {
         $csvRow = [PSCustomObject]@{
             ComputerName      = $ComputerName
             HardwareSerial    = $HardwareSerial
+            IsVirtualMachine  = if ($IsVirtualMachine) { "YES ($VmPlatform)" } else { "NO" }
             OSCaption         = $OSCaption
             Build             = $OSBuild
             LicenseStatus     = $LicenseStatusString
             Channel           = $ProductKeyChannel
             PartialKey        = $PartialKey
+            IsGenericKey      = if ($IsGenericKey) { "YES" } else { "NO" }
             OEMKeyInBios      = $Oa3Key
+            MasTraceFound     = if ($MasTraceFound) { "YES" } else { "NO" }
             InvoiceMatched    = if ($HasInvoicePassed) { "YES" } else { "NO" }
             InvoiceNumber     = if ($MatchedInvoice) { $MatchedInvoice.InvoiceNumber } else { "N/A" }
             InvoiceDate       = if ($MatchedInvoice) { $MatchedInvoice.InvoiceDate } else { "N/A" }
@@ -1047,7 +1322,7 @@ if ($ExportHtml) {
         }
 
         $invoiceSectionHtml = if ($MatchedInvoice) {
-            @"
+@"
             <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 15px; margin-top: 10px;">
                 <div style="font-weight: bold; color: #166534; margin-bottom: 8px;">✔ ĐÃ ĐỐI SOÁT HÓA ĐƠN ĐIỆN TỬ VAT HỢP LỆ (Khớp: $InvoiceStatusDetails)</div>
                 <div class="grid" style="margin-bottom: 0;">
@@ -1062,9 +1337,16 @@ if ($ExportHtml) {
             </div>
 "@
         } else {
-            @"
+            $msgTitle = if ($HasOnlyPlaceholders) { "TỆP HÓA ĐƠN CHỈ LÀ DỮ LIỆU MẪU MẶC ĐỊNH (PLACEHOLDER)" } else { "CHƯA LIÊN KẾT ĐƯỢC HÓA ĐƠN GTGT ĐỐI ỨNG" }
+            $msgDesc = if ($HasOnlyPlaceholders) {
+                "Tệp hóa đơn hiện tại trong thư mục (<strong>$ResolvedInvoiceFile</strong>) là dữ liệu mẫu giả định của dự án ('CÔNG TY DOANH NGHIỆP CỦA BẠN'). Doanh nghiệp cần cập nhật thông tin Hóa đơn điện tử VAT thật trước khi chạy đối soát chính thức."
+            } else {
+                "Không tìm thấy bản ghi hóa đơn mua hàng khớp với Serial máy (<strong>$HardwareSerial</strong>) hoặc Hostname trong kho dữ liệu chứng từ. Đề nghị kế toán bổ sung vào hồ sơ lưu trữ để xuất trình khi thanh tra."
+            }
+
+@"
             <div style="background: #fefce8; border: 1px solid #fef08a; border-radius: 6px; padding: 15px; margin-top: 10px; color: #854d0e;">
-                <strong>⚠ CHƯA LIÊN KẾT ĐƯỢC HÓA ĐƠN GTGT ĐỐI ỨNG:</strong> Không tìm thấy bản ghi hóa đơn mua hàng khớp với Serial máy (<strong>$HardwareSerial</strong>) hoặc Hostname trong kho dữ liệu chứng từ. Đề nghị kế toán bổ sung vào hồ sơ lưu trữ để xuất trình khi thanh tra.
+                <strong>⚠ ${msgTitle}:</strong> $msgDesc
             </div>
 "@
         }
@@ -1126,12 +1408,14 @@ if ($ExportHtml) {
             <div class="grid">
                 <div class="card"><div class="title">Tên thiết bị (Hostname)</div><div class="value">$ComputerName</div></div>
                 <div class="card"><div class="title">Số Serial / Service Tag</div><div class="value">$HardwareSerial</div></div>
+                <div class="card"><div class="title">Loại phần cứng</div><div class="value">$(if ($IsVirtualMachine) { "Máy ảo ($VmPlatform)" } else { "Máy tính vật lý (Physical)" })</div></div>
                 <div class="card"><div class="title">Hệ điều hành</div><div class="value">$OSCaption</div></div>
                 <div class="card"><div class="title">Trạng thái bản quyền</div><div class="value">$LicenseStatusString</div></div>
                 <div class="card"><div class="title">Kênh bản quyền (Channel)</div><div class="value">$ProductKeyChannel</div></div>
-                <div class="card"><div class="title">5 Ký tự cuối Key</div><div class="value">$PartialKey</div></div>
+                <div class="card"><div class="title">5 Ký tự cuối Key</div><div class="value">$PartialKey $(if ($IsGenericKey) { "<span style='color:#dc2626; font-size:11px;'>(Generic Key)</span>" } else { "" })</div></div>
                 <div class="card"><div class="title">OEM Key trong BIOS</div><div class="value">$(if ($Oa3Key) { $Oa3Key } else { "Không có" })</div></div>
-                <div class="card"><div class="title">Kích hoạt vĩnh viễn</div><div class="value">$(if ($IsPermanentActivation) { "Vĩnh viễn (Permanent)" } else { "Có thời hạn (KMS/Grace)" })</div></div>
+                <div class="card"><div class="title">Kích hoạt vĩnh viễn</div><div class="value">$(if ($IsKms38Crack) { "KMS38 (Crack đến 2038)" } elseif ($IsPermanentActivation) { "Vĩnh viễn (Permanent)" } else { "Có thời hạn (KMS/Grace)" })</div></div>
+                <div class="card"><div class="title">Dấu vết bẻ khóa MAS</div><div class="value">$(if ($MasTraceFound) { "<span style='color:#dc2626;'>PHÁT HIỆN DẤU VẾT</span>" } else { "<span style='color:#16a34a;'>Sạch</span>" })</div></div>
             </div>
 
             <h2>2. Chứng Từ Hóa Đơn Điện Tử VAT Đối Ứng (Nghị định 341/2025/NĐ-CP)</h2>
@@ -1140,7 +1424,7 @@ if ($ExportHtml) {
             <h2>3. Hướng Dẫn & Đánh Giá Rủi Ro Pháp Lý</h2>
             <div class="guidance-box">$ActionGuidance</div>
 
-            <h2>4. Chi Tiết Rà Soát Kỹ Thuật (Authenticode, Registry, KMS, HackTools, Tasks, Hosts)</h2>
+            <h2>4. Chi Tiết Rà Soát Kỹ Thuật (Authenticode, MAS Forensics, Registry, KMS, HackTools, Tasks, Hosts)</h2>
             <table>
                 <thead>
                     <tr>
