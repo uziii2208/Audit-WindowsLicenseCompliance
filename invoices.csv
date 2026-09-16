@@ -1,0 +1,3 @@
+InvoiceNumber,InvoiceSeries,InvoiceDate,VendorName,VendorTaxId,BuyerName,BuyerTaxId,ItemName,LicenseEdition,Quantity,TargetIdentifier,Notes
+45892,1C25TNN,4/20/2025,Synnex FPT,103608119,CONG TY CUA BAN,109876543,Microsoft Windows 11 Pro CSP,Pro,100,ALL_ENTERPRISE_POOL,Goi ban quyen tap trung 100 may
+12345,C24TAA,11/15/2024,FPT Retail,105777650,CONG TY CUA BAN,109876543,Laptop Dell Vostro 3500 kem Win 10 Pro OEM,Pro,1,GMNTPH3,May tinh mua kem OEM theo Service Tag GMNTPH3

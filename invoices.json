@@ -1,0 +1,33 @@
+[
+  {
+    "InvoiceNumber": "0045892",
+    "InvoiceSeries": "1C25TNN",
+    "InvoiceDate": "2025-04-20",
+    "VendorName": "Công ty TNHH MTV Phân phối Synnex FPT",
+    "VendorTaxId": "0103608119",
+    "BuyerName": "CÔNG TY DOANH NGHIỆP CỦA BẠN",
+    "BuyerTaxId": "0109876543",
+    "ItemName": "Giấy phép Hệ điều hành Microsoft Windows 11 Pro 64-bit All Languages ESD/CSP",
+    "LicenseEdition": "Pro",
+    "LicenseType": "CSP/ESD",
+    "Quantity": 100,
+    "TargetIdentifier": "ALL_ENTERPRISE_POOL",
+    "Notes": "Hóa đơn mua bản quyền tập trung cho 100 máy trạm doanh nghiệp năm 2025"
+  },
+  {
+    "InvoiceNumber": "0012345",
+    "InvoiceSeries": "C24TAA",
+    "InvoiceDate": "2024-11-15",
+    "VendorName": "Công ty Cổ phần Bán lẻ Kỹ thuật số FPT (FPT Shop)",
+    "VendorTaxId": "0105777650",
+    "BuyerName": "CÔNG TY DOANH NGHIỆP CỦA BẠN",
+    "BuyerTaxId": "0109876543",
+    "ItemName": "Máy tính xách tay Dell Vostro 3500 Core i5 kèm Windows 10 Pro OEM",
+    "LicenseEdition": "Pro",
+    "LicenseType": "OEM",
+    "Quantity": 1,
+    "TargetIdentifier": "GMNTPH3",
+    "TargetKey": "XYCV7-N9T8H-BY29F-369HM-JK8V2",
+    "Notes": "Máy tính Dell Vostro kèm bản quyền OEM theo máy, khớp Service Tag GMNTPH3"
+  }
+]
