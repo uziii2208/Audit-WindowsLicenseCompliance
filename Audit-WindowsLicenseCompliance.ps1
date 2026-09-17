@@ -778,24 +778,145 @@ if (-not $ServiceFound) {
     Add-Finding "Services" "Crack Services" "PASSED" "Không có dịch vụ KMS emulator nào tồn tại." "Bình thường"
 }
 
-$RegOrgPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
-$RegOrg = (Get-ItemProperty -Path $RegOrgPath).RegisteredOrganization
-$RegOwner = (Get-ItemProperty -Path $RegOrgPath).RegisteredOwner
-$PirateTags = @("ghoster", "ghostviet", "khatmau", "songngoc", "thuannguyen", "lehait", "ghost", "repack", "lite", "crack")
+# ==============================================================================
+# 7.2. ĐIỀU TRA PHÁP Y BẢN WINDOWS MOD / GHOST / REPACK / LITE OS / CUSTOM ISO
+# ==============================================================================
+Write-Section "7.2. RÀ SOÁT DẤU VẾT BẢN WINDOWS MOD / GHOST / LITE OS / CUSTOM ISO"
 
-$GhostDetected = $false
-foreach ($tag in $PirateTags) {
-    if ($RegOrg -like "*$tag*" -or $RegOwner -like "*$tag*") {
-        $GhostDetected = $true
-        Write-ResultItem "Dấu hiệu Ghost Win dạo" "Phát hiện chuỗi nhận diện Ghost: Org='$RegOrg' / Owner='$RegOwner'" "WARNING"
-        Add-Finding "Ghost/Repack" "Registered Info" "WARNING" "Thông tin người dùng đăng ký mang dấu hiệu của bản Ghost lậu phân tán trên Internet: Org='$RegOrg', Owner='$RegOwner'." "Rủi ro cài đặt từ nguồn không chính thức"
-        break
+$WinModDetected = $false
+$WinModSeverity = "PASSED"
+$WinModDetails = [System.Collections.Generic.List[string]]::new()
+
+# 1. Quét sâu chuỗi nhận diện Mod trong Registry (CurrentVersion & OEMInformation)
+$RegOrgPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion"
+$RegProps = Get-ItemProperty -Path $RegOrgPath -ErrorAction SilentlyContinue
+$RegOrg      = if ($RegProps.RegisteredOrganization) { $RegProps.RegisteredOrganization.ToString().Trim() } else { "" }
+$RegOwner    = if ($RegProps.RegisteredOwner) { $RegProps.RegisteredOwner.ToString().Trim() } else { "" }
+$RegProd     = if ($RegProps.ProductName) { $RegProps.ProductName.ToString().Trim() } else { "" }
+$RegDispVer  = if ($RegProps.DisplayVersion) { $RegProps.DisplayVersion.ToString().Trim() } else { "" }
+$RegEdition  = if ($RegProps.EditionID) { $RegProps.EditionID.ToString().Trim() } else { "" }
+$RegBuildLab = if ($RegProps.BuildLab) { $RegProps.BuildLab.ToString().Trim() } else { "" }
+
+$OemInfoPath = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation"
+$OemProps = Get-ItemProperty -Path $OemInfoPath -ErrorAction SilentlyContinue
+$OemManuf = if ($OemProps.Manufacturer) { $OemProps.Manufacturer.ToString().Trim() } else { "" }
+$OemModel = if ($OemProps.Model) { $OemProps.Model.ToString().Trim() } else { "" }
+$OemUrl   = if ($OemProps.SupportURL) { $OemProps.SupportURL.ToString().Trim() } else { "" }
+$OemLogo  = if ($OemProps.Logo) { $OemProps.Logo.ToString().Trim() } else { "" }
+
+$CombinedBranding = "$RegOrg $RegOwner $RegProd $RegDispVer $RegEdition $RegBuildLab $OemManuf $OemModel $OemUrl $OemLogo".ToLower()
+
+$ModKeywords = @(
+    # Tác giả & diễn đàn Ghost Win phổ biến tại Việt Nam
+    "ghoster", "ghostviet", "khatmau", "khatmau_61", "songngoc", "thuannguyen", "lehait", "leha_it",
+    "21cd", "phanmemaz", "tienichmaytinh", "timt", "tranbao", "hssm", "vforum", "vn-zoom",
+    # Các bản Windows Mod / Lite OS / Custom Gaming nổi tiếng thế giới
+    "ghost spectre", "ghostspectre", "superlite", "compact", "revios", "revision", "revi.cc",
+    "atlasos", "atlas-os", "atlas os", "tiny10", "tiny11", "ntdev", "nexus liteos", "nexusos",
+    "ggos", "gg-os", "foxos", "winteros", "kernelos", "replayos", "windows x-lite", "windowsxlite",
+    "fbconan", "rectify11", "ameliorated", "ame wizard", "black edition", "gamer edition",
+    "performance edition", "winreducer", "ntlite", "msmg"
+)
+
+$MatchedKeywords = @()
+foreach ($kw in $ModKeywords) {
+    if ($CombinedBranding -match [regex]::Escape($kw)) {
+        $MatchedKeywords += $kw
     }
 }
 
-if (-not $GhostDetected) {
-    Write-ResultItem "Thông tin bản quyền Windows" "Chủ sở hữu: '$RegOwner' / Tổ chức: '$RegOrg'" "PASSED"
-    Add-Finding "Ghost/Repack" "Registered Info" "PASSED" "Thông tin đăng ký bình thường." "Hợp lệ"
+if ($MatchedKeywords.Count -gt 0) {
+    $WinModDetected = $true
+    $WinModSeverity = "FAILED"
+    $WinModDetails.Add("Phát hiện định danh bản Windows Mod/Ghost: $($MatchedKeywords -join ', ') (Org='$RegOrg', Owner='$RegOwner', URL='$OemUrl', Prod='$RegProd')")
+}
+
+# 2. Quét tệp cấu hình cài đặt tự động (Unattended Setup & Panther XML)
+$UnattendFiles = @(
+    "$env:windir\Panther\unattend.xml",
+    "$env:windir\Panther\Unattend\unattend.xml",
+    "$env:windir\System32\sysprep\unattend.xml",
+    "$env:windir\System32\unattend.xml",
+    "$env:SystemDrive\Autounattend.xml"
+)
+
+foreach ($uFile in $UnattendFiles) {
+    if (Test-Path $uFile) {
+        try {
+            $uContent = Get-Content -Path $uFile -Raw -ErrorAction SilentlyContinue
+            if ($uContent -match "slmgr|massgrave|kms|bypass|gatherosstate|AutoLogon|FirstLogonCommands|RunSynchronous|ghostspectre|revios|atlas|lehait") {
+                $WinModDetected = $true
+                $WinModSeverity = "FAILED"
+                $WinModDetails.Add("Tệp cài đặt tự động Unattended '$uFile' chứa mã can thiệp/bẻ khóa hệ thống")
+            } else {
+                $WinModDetails.Add("Tồn tại tệp cài đặt Unattended '$uFile' (Cần xác minh nguồn gốc ISO)")
+                if ($WinModSeverity -ne "FAILED") { $WinModSeverity = "WARNING" }
+            }
+        } catch {}
+    }
+}
+
+# 3. Quét thư mục công cụ Mod Toolbox & Shell Mods đặc trưng
+$ModToolboxPaths = @(
+    "$env:SystemDrive\GHOST",
+    "$env:windir\GhostToolbox",
+    "$env:ProgramFiles\Ghost Toolbox",
+    "${env:ProgramFiles(x86)}\Ghost Toolbox",
+    "$env:SystemDrive\Atlas",
+    "$env:windir\Atlas",
+    "$env:ProgramData\Atlas",
+    "$env:SystemDrive\ReviOS",
+    "$env:ProgramData\ReviOS",
+    "$env:ProgramFiles\AME Wizard",
+    "$env:ProgramData\AME",
+    "$env:ProgramFiles\StartAllBack",
+    "$env:ProgramFiles\StartIsBack"
+)
+
+foreach ($mtPath in $ModToolboxPaths) {
+    if (Test-Path $mtPath) {
+        $WinModDetected = $true
+        $WinModSeverity = "FAILED"
+        $WinModDetails.Add("Phát hiện thư mục công cụ modding/toolbox đặc trưng: $mtPath")
+    }
+}
+
+# 4. Rà soát dịch vụ hệ thống bị cắt gọt (Gutted Services Anomaly)
+$WuSvc = Get-Service -Name "wuauserv" -ErrorAction SilentlyContinue
+$WuReg = Test-Path "HKLM:\SYSTEM\CurrentControlSet\Services\wuauserv"
+
+if (-not $WuSvc -or -not $WuReg) {
+    $WinModDetected = $true
+    $WinModSeverity = "FAILED"
+    $WinModDetails.Add("Dịch vụ Windows Update (wuauserv) BỊ XÓA BỎ HOÀN TOÀN KHỎI HỆ THỐNG (Đặc trưng bản Windows SuperLite/Ghost dạo)")
+} elseif ($WuSvc.StartType -eq "Disabled") {
+    $WinModDetails.Add("Dịch vụ Windows Update (wuauserv) bị vô hiệu hóa (Disabled)")
+    if ($WinModSeverity -ne "FAILED") { $WinModSeverity = "WARNING" }
+}
+
+$WdReg = Test-Path "HKLM:\SYSTEM\CurrentControlSet\Services\WinDefend"
+$WdSvc = Get-Service -Name "WinDefend" -ErrorAction SilentlyContinue
+if (-not $WdReg -or (-not $WdSvc -and (Get-CimInstance -ClassName Win32_OperatingSystem).Caption -notlike "*Server*")) {
+    $WinModDetected = $true
+    if ($WinModSeverity -ne "FAILED") { $WinModSeverity = "WARNING" }
+    $WinModDetails.Add("Dịch vụ Windows Defender (WinDefend) bị gỡ bỏ hoặc không tồn tại (Đặc trưng bản Windows Lite)")
+}
+
+try {
+    $luaVal = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -ErrorAction SilentlyContinue).EnableLUA
+    if ($luaVal -eq 0) {
+        $WinModDetails.Add("Chính sách bảo mật UAC bị tắt cứng (EnableLUA = 0, đặc trưng bản Ghost Win dạo chạy full quyền Admin)")
+        if ($WinModSeverity -ne "FAILED") { $WinModSeverity = "WARNING" }
+    }
+} catch {}
+
+if ($WinModDetected -or $WinModDetails.Count -gt 0) {
+    $detailSummary = $WinModDetails -join "; "
+    Write-ResultItem "Nhận diện Windows Mod/Ghost" "PHÁT HIỆN DẤU VẾT BẢN WIN ĐÃ QUA CHỈNH SỬA: $detailSummary" $WinModSeverity
+    Add-Finding "Windows Mod Forensics" "Custom OS / Ghost Mod" $WinModSeverity "Hệ thống mang dấu vết của bản Windows Mod / Ghost / Lite OS / Unattended ISO đã qua chỉnh sửa: $detailSummary." "Bản Windows không nguyên bản, tiềm ẩn rủi ro mã độc cài cắm và vi phạm thỏa thuận cấp phép Microsoft EULA"
+} else {
+    Write-ResultItem "Nhận diện Windows Mod/Ghost" "Sạch (Hệ điều hành Windows nguyên bản, không có dấu vết Ghost/Mod)" "PASSED"
+    Add-Finding "Windows Mod Forensics" "Clean OS" "PASSED" "Không phát hiện dấu vết chỉnh sửa của các bản Ghost, Lite OS hay công cụ modding." "Nguyên bản"
 }
 
 # ==============================================================================
@@ -832,8 +953,15 @@ $CrackPaths = @(
     "$env:windir\System32\wat\watadmin.exe",
     "$env:windir\Setup\Scripts\SetupComplete.cmd",
     "$env:windir\Setup\Scripts\ErrorHandler.cmd",
+    "$env:windir\Setup\Scripts\oobe.cmd",
     "$env:windir\Setup\Scripts\Activate.cmd",
-    "$env:windir\Setup\Scripts\Activate.bat"
+    "$env:windir\Setup\Scripts\Activate.bat",
+    "$env:SystemDrive\GHOST",
+    "$env:windir\GhostToolbox",
+    "$env:SystemDrive\Atlas",
+    "$env:SystemDrive\ReviOS",
+    "$env:ProgramFiles\StartAllBack",
+    "$env:ProgramFiles\StartIsBack"
 )
 
 $CrackFoundOnDisk = $false

@@ -35,9 +35,9 @@ Bộ công cụ **Audit-WindowsLicenseCompliance** ra đời nhằm giúp đội
 | **6** | **Đặc trị OHOOK** | Quét sự xuất hiện của `C:\Windows\System32\sppcs.dll` và kiểm tra Catalog Signature của `sppc.dll` | • Ohook đổi tên `sppc.dll` gốc thành `sppcs.dll` và chèn DLL giả mạo để bypass kích hoạt Office/Windows |
 | **7** | **ĐIỀU TRA PHÁP Y MAS (HWID, KMS38, TSFORGE)** | • Quét toàn bộ lịch sử PSReadLine không giới hạn (`Select-String`)<br>• Quét Event ID 4104 ScriptBlock Logging<br>• Quét bộ đệm DNS Client Cache các subdomain MAS<br>• Quét Prefetch có kiểm tra cờ `EnablePrefetcher`<br>• Rà soát dấu vết `TSforge` & bất thường kho `tokens.dat` | • Lệnh `irm https://get.activated.win\|iex` lưu trong lịch sử PowerShell<br>• Dấu vết trích xuất vé lậu gatherosstate trên Win 10/11<br>• Thời hạn bản quyền kết thúc năm 2038<br>• Tệp backup `tokens.dat.bak`, kho WPA bị tiêm vé TSforge |
 | **8** | **SppExtComObjHook & Driver Bẫy Mạng** | Quét DLL Hook trong `System32`, `SysWOW64` và driver bắt gói tin mạng `windivert*.sys` | • Dấu vết hook tiến trình của KMSpico, KMSAuto Net, AAct Portable, WinDivert |
-| **9** | **Registry IFEO & Dịch Vụ SPPSVC** | Kiểm tra `SppExtComObj.exe` Debugger và rà soát tính sẵn sàng của dịch vụ cốt lõi `sppsvc` | • IFEO Debugger chuyển hướng tiến trình bản quyền<br>• Dịch vụ `sppsvc` bị vô hiệu hóa/xóa bởi Chew-WGA / RemoveWAT |
+| **9** | **Registry IFEO, SPPSVC & Windows Mod Forensics** | Rà soát IFEO Debugger, tính toàn vẹn của dịch vụ `sppsvc`, và bóc tách định danh bản Windows Mod/Ghost/Lite OS | • IFEO Debugger chuyển hướng tiến trình bản quyền<br>• Dịch vụ `sppsvc`/`wuauserv` bị gỡ bỏ<br>• Định danh Ghost Spectre, ReviOS, AtlasOS, LeHaIT... |
 | **10** | **Rogue KMS & TCP Port 1688 Listener** | Quét cổng lắng nghe TCP 1688 trên máy trạm và đối chiếu blacklist 30+ máy chủ KMS lậu quốc tế | • Máy trạm mở port 1688 (KMS emulator ngầm vlmcsd, py-kms, KMSpico)<br>• Trỏ về KMS lậu công cộng hoặc loopback `127.0.0.1` |
-| **11** | **Kho Công Cụ Crack Đa Dòng** | Quét thư mục `KMSpico`, `KMSAuto`, `AAct`, `HEU_KMS`, `Toolkit`, `slic.sys`, `SetupComplete.cmd` | • File thực thi hacktool của Ratiborus, Heldigard, zbezj<br>• Script kích hoạt tự động nhúng trong bản Ghost/Repack |
+| **11** | **Kho Hacktool & Mod Toolboxes Trên Đĩa** | Quét thư mục `KMSpico`, `KMSAuto`, `AAct`, `HEU_KMS`, `GHOST`, `Atlas`, `ReviOS`, `StartAllBack`, `unattend.xml` | • File thực thi hacktool của Ratiborus, Heldigard, zbezj<br>• Thư mục toolbox và script cài đặt tự động Unattended |
 | **12** | **Scheduled Tasks Re-arm Chu Kỳ** | Quét các tác vụ lên lịch tự động gia hạn chu kỳ (`AutoKMS`, `AAct`, `HEU`, `Ratiborus`, `CleanKMS`...) | • Task tự động gia hạn lậu chu kỳ 7-180 ngày duy trì kích hoạt |
 | **13** | **Defender Tampering & Hosts** | Quét danh sách loại trừ Windows Defender (`Get-MpPreference`) và tệp `hosts` | • Thư mục hoặc tiến trình crack được whitelist khỏi Antivirus<br>• Can thiệp file `hosts` chặn máy chủ xác thực Microsoft |
 | **14** | **ĐỐI SOÁT HÓA ĐƠN VAT CHẶT CHẼ** | So khớp Serial máy, Hostname, Product Key với Kho hóa đơn qua REST API hoặc File CSV/JSON | • Nhận diện và loại trừ dữ liệu mẫu giả định (Placeholder template)<br>• Ràng buộc máy trạm Domain / MST khi ghép gói Enterprise Pool<br>• Cảnh báo lệch phiên bản & kênh cấp phép |
@@ -87,8 +87,31 @@ Khi Đoàn Thanh tra Liên ngành (Bộ TT&TT, Bộ KH&CN, Cục C05/PA05 Bộ C
 | **Online KMS Scripts (`slmgr /skms`)** | Các trang chia sẻ công cộng | Đổi máy chủ KMS sang IP/Domain miễn phí trên mạng (`kms.msguides.com`, v.v.) | Tầng 10 (Blacklist 30+ máy chủ KMS lậu quốc tế & cảnh báo máy Workgroup không có Domain mà trỏ KMS ngoài) | **100% DETECTED** |
 | **Windows 7 Loader by Daz / SLIC Modifiers** | Daz | Tiêm bảng ACPI SLIC giả mạo vào bộ nhớ qua bootloader (`grldr`, driver `slic.sys`) | Tầng 4 (Bóc tách ACPI MSDM/SLIC), Tầng 11 (`C:\grldr`, `slic.sys`), Tầng 14 (Hóa đơn VAT) | **100% DETECTED** |
 | **Chew-WGA / RemoveWAT** | Nhóm bẻ khóa cổ điển | Vô hiệu hóa hoặc xóa dịch vụ bản quyền `sppsvc`, vá nhị phân `slwga.dll` | Tầng 5 (Authenticode `slwga.dll` lỗi), Tầng 9 (Phát hiện dịch vụ `sppsvc` bị Disabled/Gỡ bỏ) | **100% DETECTED** |
-| **Bản Ghost Win / Repack ISO lậu** | Ghoster Việt Nam / Quốc tế (LeHait, KhatMau, GhostViet, Phoenix LiteOS...) | Tích hợp sẵn crack ngầm trong file cài đặt, chạy lệnh bẻ khóa qua `SetupComplete.cmd` | Tầng 9 (RegisteredOwner/Org mang tên thợ ghost), Tầng 11 (Quét nội dung `SetupComplete.cmd`, `ErrorHandler.cmd`) | **100% DETECTED** |
-| **MAS (Microsoft Activation Scripts)** | Massgrave | HWID Digital License, KMS38, Ohook, TSforge | Tầng 1 & 3 (Key Generic + VM), Tầng 6 (`sppcs.dll`), Tầng 7 (PSReadLine, Event 4104, DNS, Prefetch gatherosstate/clipup) | **100% DETECTED** |
+| **Bản Ghost Win / Repack Việt Nam** | Lê Hà IT, Khát Máu, Song Ngọc, Thuận Nguyễn, 21CD, TIMT, PhanMemAZ... | Tích hợp sẵn crack ngầm, can thiệp Registry `RegisteredOwner`/`Org`, tắt UAC, chạy lệnh qua `SetupComplete.cmd` | Tầng 9 (Nhận diện Branding Registry & tắt UAC `EnableLUA=0`), Tầng 11 (`SetupComplete.cmd`, `oobe.cmd`) | **100% DETECTED** |
+| **Windows Mod / Lite OS Quốc Tế** | Ghost Spectre (SuperLite/Compact), ReviOS, AtlasOS, Tiny10/11, GGOS, Nexus, X-Lite... | Cắt gọt Windows Update (`wuauserv`), gỡ bỏ Defender (`WinDefend`), nhúng toolbox `C:\GHOST`, `Atlas`, StartAllBack | Tầng 9 (Cắt gọt dịch vụ `wuauserv`/`WinDefend`), Tầng 11 (Toolbox `C:\GHOST`, `Atlas`, `StartAllBack`, `unattend.xml`) | **100% DETECTED** |
+| **MAS (Microsoft Activation Scripts)** | Massgrave | HWID Digital License, KMS38, Ohook, TSforge | Tầng 1 & 3 (Key Generic + VM), Tầng 6 (`sppcs.dll`), Tầng 7 (PSReadLine `Select-String`, Event 4104, DNS, TSforge tokens.dat) | **100% DETECTED** |
+
+---
+
+### Ma Trận Pháp Y Bóc Tách Bản Windows Mod / Ghost / Lite OS Chuyên Sâu
+
+Trong môi trường doanh nghiệp, việc nhân viên hoặc kỹ thuật viên tự ý cài đặt các bản **Windows Mod, Ghost, Lite OS hoặc Custom ISO không chính thức** là hành vi vi phạm thỏa thuận cấp phép bản quyền Microsoft (EULA), đồng thời tiềm ẩn rủi ro an ninh mạng nghiêm trọng do hệ điều hành đã bị can thiệp mã nguồn và cắt gọt các dịch vụ bảo mật.
+
+Script áp dụng quy trình điều tra pháp y 5 lớp đối với Windows Mod:
+1. **Bóc Tách Định Danh & Metadata (Registry Branding)**:
+   * Quét sâu các trường thông tin: `RegisteredOrganization`, `RegisteredOwner`, `ProductName`, `DisplayVersion`, `EditionID`, `BuildLab`, `SupportURL`, `Logo`.
+   * Đối chiếu với từ điển hơn 35 tác giả/nhãn hiệu mod: **Ghost Spectre, SuperLite, Compact, ReviOS, AtlasOS, Tiny10, Tiny11 (NTDEV), GGOS, FoxOS, WinterOS, KernelOS, Windows X-Lite, AME Wizard, Lê Hà IT, Khát Máu, Song Ngọc, Thuận Nguyễn, 21CD...**
+2. **Rà Soát Tệp Cài Đặt Tự Động & Không Giám Sát (Unattended / Panther XML Forensics)**:
+   * Phát hiện các tệp: `C:\Windows\Panther\unattend.xml`, `sysprep\unattend.xml`, `C:\Autounattend.xml`, `SetupComplete.cmd`, `ErrorHandler.cmd`, `oobe.cmd`.
+   * Bóc tách lệnh tự động chạy (`FirstLogonCommands`, `RunSynchronousCommand`) chứa mã bẻ khóa bản quyền ngầm (`slmgr`, `massgrave`, `kms`, `bypass`).
+3. **Phát Hiện Thư Mục Công Cụ Mod Toolbox & Shell Modding**:
+   * Phát hiện các toolbox điều khiển của dân mod: `C:\GHOST`, `GhostToolbox`, `C:\Atlas`, `C:\ReviOS`, `AME Wizard`.
+   * Phát hiện các công cụ thay thế giao diện Start Menu nhúng ngầm: `StartAllBack`, `StartIsBack`.
+4. **Phát Hiện Dịch Vụ Cốt Lõi Bị Cắt Gọt (Gutted Services Anomaly)**:
+   * **Windows Update (`wuauserv`)**: Bị xóa hoàn toàn khỏi hệ thống hoặc bị chuyển sang `Disabled` vĩnh viễn (đặc trưng tuyệt đối của Windows SuperLite / Ghost dạo nhằm tránh bị Microsoft cập nhật vá lỗi làm mất crack).
+   * **Windows Defender (`WinDefend`)**: Bị gỡ bỏ dịch vụ hoặc vô hiệu hóa triệt để.
+5. **Phát Hiện Vô Hiệu Hóa Chính Sách An Toàn (Policy Tampering)**:
+   * **Cơ chế User Account Control (UAC) bị tắt cứng**: Kiểm tra Registry `EnableLUA = 0` (đặc trưng của thợ cài Win dạo cho chạy full quyền Administrator không cần hỏi).
 
 ---
 
