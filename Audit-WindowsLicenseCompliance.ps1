@@ -508,11 +508,9 @@ $MasPattern = 'get\.activated\.win|massgrave|massgravel|git\.activated\.win|HWID
 
 foreach ($hf in $PsHistoryFiles) {
     try {
-        $lines = Get-Content -Path $hf -Tail 500 -ErrorAction SilentlyContinue
-        foreach ($l in $lines) {
-            if ($l -match $MasPattern) {
-                $MasPsCommands.Add($l.Trim())
-            }
+        $foundMatches = Select-String -Path $hf -Pattern $MasPattern -ErrorAction SilentlyContinue
+        foreach ($m in $foundMatches) {
+            $MasPsCommands.Add($m.Line.Trim())
         }
     } catch {}
 }
@@ -539,7 +537,7 @@ try {
     $events = Get-WinEvent -FilterHashtable $filterScriptBlock -MaxEvents 150 -ErrorAction SilentlyContinue
     foreach ($evt in $events) {
         $msg = $evt.Message
-        if ($msg -match 'get\.activated\.win|massgrave\.dev|HWID_Activation|GenuineTicket\.xml|MAS_AIO|clipup\s+-v\s+-o|TSforge') {
+        if ($msg -match 'get\.activated\.win|massgrave\.dev|activated\.win|git\.activated\.win|HWID_Activation|GenuineTicket\.xml|MAS_AIO|clipup\s+-v\s+-o|TSforge') {
             $PsEventFound = $true
             break
         }
@@ -558,13 +556,13 @@ if ($PsEventFound) {
 # 5.3. Quét Bộ nhớ đệm DNS (DNS Client Cache)
 $DnsCrackFound = $false
 $DnsEntriesMatched = @()
+$DnsPattern = "get\.activated\.win|massgrave\.dev|activated\.win|git\.activated\.win|idkey\.massgrave\.dev|msguides\.com"
 try {
     $dnsEntries = Get-DnsClientCache -ErrorAction SilentlyContinue
     foreach ($entry in $dnsEntries) {
         $eName = $entry.Entry
         $eData = $entry.Data
-        if ($eName -match "get\.activated\.win|massgrave\.dev|activated\.win|git\.activated\.win" -or
-            $eData -match "get\.activated\.win|massgrave\.dev|activated\.win|git\.activated\.win") {
+        if ($eName -match $DnsPattern -or $eData -match $DnsPattern) {
             $DnsCrackFound = $true
             $DnsEntriesMatched += $eName
         }
@@ -582,16 +580,25 @@ if ($DnsCrackFound) {
 }
 
 # 5.4. Quét Tệp Prefetch (GATHEROSSTATE.EXE & CLIPUP.EXE)
-$PrefetchGatheros = Test-Path "$env:windir\Prefetch\GATHEROSSTATE.EXE-*.pf"
-$PrefetchClipup   = Test-Path "$env:windir\Prefetch\CLIPUP.EXE-*.pf"
+$PrefetchParams = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management\PrefetchParameters" -ErrorAction SilentlyContinue
+$PrefetchEnabled = if ($PrefetchParams -and $PrefetchParams.EnablePrefetcher -ne $null) { [int]$PrefetchParams.EnablePrefetcher } else { 0 }
+$PrefetchDirExists = Test-Path "$env:windir\Prefetch"
 
-if ($PrefetchGatheros) {
-    $MasTraceFound = $true
-    Write-ResultItem "Prefetch gatherosstate.exe" "PHÁT HIỆN GATHEROSSTATE TRÊN WINDOWS 10/11!" "FAILED"
-    Add-Finding "MAS Forensics" "Gatherosstate Prefetch" "FAILED" "Phát hiện tệp Prefetch của gatherosstate.exe. Công cụ trích xuất vé Win 7/8 này chỉ được script bẻ khóa MAS HWID sử dụng để tạo vé giả mạo trên Win 10/11." "Chứng cứ pháp y giả mạo vé bản quyền kỹ thuật số"
+if ($PrefetchEnabled -gt 0 -and $PrefetchDirExists) {
+    $PrefetchGatheros = Test-Path "$env:windir\Prefetch\GATHEROSSTATE.EXE-*.pf"
+    $PrefetchClipup   = Test-Path "$env:windir\Prefetch\CLIPUP.EXE-*.pf"
+
+    if ($PrefetchGatheros) {
+        $MasTraceFound = $true
+        Write-ResultItem "Prefetch gatherosstate.exe" "PHÁT HIỆN GATHEROSSTATE TRÊN WINDOWS 10/11!" "FAILED"
+        Add-Finding "MAS Forensics" "Gatherosstate Prefetch" "FAILED" "Phát hiện tệp Prefetch của gatherosstate.exe. Công cụ trích xuất vé Win 7/8 này chỉ được script bẻ khóa MAS HWID sử dụng để tạo vé giả mạo trên Win 10/11." "Chứng cứ pháp y giả mạo vé bản quyền kỹ thuật số"
+    } else {
+        Write-ResultItem "Prefetch gatherosstate.exe" "Sạch (Không phát hiện công cụ trích xuất vé lậu)" "PASSED"
+        Add-Finding "MAS Forensics" "Gatherosstate Prefetch" "PASSED" "Không có gatherosstate trong Prefetch." "Bình thường"
+    }
 } else {
-    Write-ResultItem "Prefetch gatherosstate.exe" "Sạch (Không phát hiện công cụ trích xuất vé lậu)" "PASSED"
-    Add-Finding "MAS Forensics" "Gatherosstate Prefetch" "PASSED" "Không có gatherosstate trong Prefetch." "Bình thường"
+    Write-ResultItem "Prefetch gatherosstate.exe" "Bỏ qua (Prefetcher bị tắt hoặc không khả dụng: EnablePrefetcher=$PrefetchEnabled)" "INFO"
+    Add-Finding "MAS Forensics" "Gatherosstate Prefetch" "INFO" "Tính năng Prefetch bị tắt trên hệ thống (EnablePrefetcher=$PrefetchEnabled)." "Không áp dụng"
 }
 
 # 5.5. Quét Thư mục vé ClipSVC & Temp Logs của MAS
@@ -606,7 +613,7 @@ foreach ($td in $TempSearchDirs) {
         if (Test-Path $dbg) {
             try {
                 $content = Get-Content $dbg -Tail 30 -ErrorAction SilentlyContinue
-                if ($content -match "HWID Activation|massgrave|ClipSVC|get\.activated\.win|MAS") {
+                if ($content -match "HWID Activation|massgrave|ClipSVC|get\.activated\.win|MAS|TSforge") {
                     $FoundMasLogs += $dbg
                 }
             } catch {}
@@ -623,6 +630,63 @@ if ($FoundMasLogs.Count -gt 0) {
 } else {
     Write-ResultItem "Tệp nhật ký tạm MAS" "Sạch (Không có tệp log _Debug.log hoặc thư mục MAS rác)" "PASSED"
     Add-Finding "MAS Forensics" "MAS Temp Logs" "PASSED" "Thư mục tạm thời sạch." "Bình thường"
+}
+
+# 5.6. Quét Dấu vết TSforge (Ticket Synthesis Forge) & Kho Tokens.dat
+$TsforgeFound = $false
+$TsforgeDetails = @()
+
+$TokensStorePath = "$env:windir\System32\spp\store\2.0"
+$SuspiciousTokenFiles = @("tokens.dat.bak", "tokens.dat.old", "tokens.bar", "tokens_bak.dat", "tokens.dat.tmp")
+foreach ($stf in $SuspiciousTokenFiles) {
+    $fullTPath = "$TokensStorePath\$stf"
+    if (Test-Path $fullTPath) {
+        $TsforgeFound = $true
+        $TsforgeDetails += "Phát hiện tệp backup/tái tạo tokens lậu: $stf"
+    }
+}
+
+$MainTokensDat = "$TokensStorePath\tokens.dat"
+if (Test-Path $MainTokensDat) {
+    $tokensItem = Get-Item $MainTokensDat -ErrorAction SilentlyContinue
+    if ($tokensItem -and $tokensItem.Length -lt 500KB) {
+        $TsforgeFound = $true
+        $TsforgeDetails += "Tệp tokens.dat có dung lượng bất thường ($([math]::Round($tokensItem.Length / 1KB, 1)) KB < 500 KB chuẩn)"
+    }
+}
+
+$WpaPath = "HKLM:\SYSTEM\WPA"
+if (Test-Path $WpaPath) {
+    try {
+        $wpaKeys = Get-ChildItem -Path $WpaPath -ErrorAction SilentlyContinue
+        foreach ($wk in $wpaKeys) {
+            if ($wk.Name -match "TSforge|Massgrave|TicketForge") {
+                $TsforgeFound = $true
+                $TsforgeDetails += "Khóa Registry WPA bất thường: $($wk.Name)"
+            }
+        }
+    } catch {}
+}
+
+$RdsGrace = "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\RCM\GracePeriod"
+if (Test-Path $RdsGrace) {
+    try {
+        $graceVals = Get-ItemProperty -Path $RdsGrace -ErrorAction SilentlyContinue
+        if ($graceVals -and ($graceVals.PSObject.Properties | Where-Object { $_.Name -like "*L$*" })) {
+            $TsforgeFound = $true
+            $TsforgeDetails += "Phát hiện can thiệp gia hạn lậu Terminal Services GracePeriod (TSforge RDS)"
+        }
+    } catch {}
+}
+
+if ($TsforgeFound) {
+    $MasTraceFound = $true
+    $tsDetailStr = $TsforgeDetails -join "; "
+    Write-ResultItem "Dấu vết TSforge / tokens.dat" "PHÁT HIỆN BẤT THƯỜNG: $tsDetailStr" "FAILED"
+    Add-Finding "MAS Forensics" "TSforge Artifacts" "FAILED" "Phát hiện dấu vết công nghệ bẻ khóa MAS TSforge (Ticket Synthesis Forge) hoặc can thiệp kho tokens.dat: $tsDetailStr." "Chứng cứ bẻ khóa hệ thống kích hoạt nâng cao"
+} else {
+    Write-ResultItem "Dấu vết TSforge / tokens.dat" "Sạch (Kho tokens.dat và WPA nguyên bản)" "PASSED"
+    Add-Finding "MAS Forensics" "TSforge Artifacts" "PASSED" "Không phát hiện can thiệp kho tokens.dat hay WPA." "Bình thường"
 }
 
 # ==============================================================================
@@ -1216,6 +1280,7 @@ if (-not $Quiet) {
     Write-Host ("*" * 80) -ForegroundColor $VerdictColor
     Write-Host "  KẾT QUẢ CUỐI CÙNG : $VerdictTitle" -ForegroundColor $VerdictColor
     Write-Host "  MÃ ĐÁNH GIÁ       : $FinalVerdict" -ForegroundColor White
+    Write-Host "  MÃ THOÁT (EXIT)   : $ExitCode" -ForegroundColor White
     Write-Host ("  TỔNG HỢP CHỈ SỐ   : {0} Đạt | {1} Cần xác minh | {2} Cảnh báo | {3} Vi phạm nghiêm trọng" -f $CountPassed, $CountSuspicious, $CountWarning, $CountFailed) -ForegroundColor White
     Write-Host ("*" * 80) -ForegroundColor $VerdictColor
     Write-Host ""
@@ -1512,4 +1577,5 @@ if ($ExportHtml) {
     }
 }
 
+$global:LASTEXITCODE = $ExitCode
 exit $ExitCode
